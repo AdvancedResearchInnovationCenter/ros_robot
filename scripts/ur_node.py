@@ -17,6 +17,7 @@ import copy
 from URX.srv import moveUR, desiredTCP, fireDrill
 import tf2_ros
 import datetime
+import copy
 
 #For urx, check documentation: http://www.me.umn.edu/courses/me5286/robotlab/Resources/scriptManual-3.5.4.pdf
 TCP_to_pressure_foot = np.array([[-0.7065235,   -0.0149079,     0.7075326,  0.10418],
@@ -36,16 +37,22 @@ TCP_to_pressure_foot = np.array([[-0.7065235,   -0.0149079,     0.7075326,  0.10
 #                         [ 0.,           0.,             0.,             1.        ]])
 
 # Aric davis testing
-TCP_to_cam = np.array([[1.0,        0.0,     0.0,     0.0],
-                        [0.0,       0.0,    1.0,     0.0],
-                        [0.0,       -1.0,     0,       0.05],
-                        [0.,        0.,      0.,             1.]])
+# TCP_to_cam = np.array([[1.0,        0.0,     0.0,     0.0],
+#                         [0.0,       0.0,    1.0,     0.0],
+#                         [0.0,       -1.0,     0,       0.05],
+#                         [0.,        0.,      0.,             1.]])
 
 # Aric d435 testing
 # TCP_to_cam = np.array([[1.0,        0.0,     0.0,     -0.1],
 #                         [0.0,       0.0,    1.0,     0.0],
 #                         [0.0,       -1.0,     0,       0.05],
 #                         [0.,        0.,      0.,             1.]])
+
+#DAVIS240C for VS
+TCP_to_cam = np.array([[0.99950824,        -0.02129117,     -0.02302113,  0.01084815],
+                        [0.02400126,  0.04698646,  0.99860714,  0.02530791],
+                        [-0.02017983, -0.99866859,  0.04747437,  0.04749927],
+                        [0.,        0.,      0.,             1.]])
                         
 
 class urx_ros:
@@ -71,6 +78,8 @@ class urx_ros:
 
         self.ros_node = rospy.init_node('ur10_node', anonymous=True)
         self.pose_publisher = rospy.Publisher('tcp_pose', PoseStamped, queue_size=1)
+        self.velocity_publisher = rospy.Publisher('/dvs/vel', Twist, queue_size=1)
+        self.speed_publisher = rospy.Publisher('/dvs/spd', Float64, queue_size=1)
         self.cam_pose_publisher = rospy.Publisher('/dvs/pose', PoseStamped, queue_size=1)
         self.cmd_vel_subs = rospy.Subscriber("ur_cmd_vel", Twist, self.move_robot_callback, queue_size=1)
         self.cmd_pose_subs = rospy.Subscriber("ur_cmd_pose", Pose, self.move_pose_callback)
@@ -93,7 +102,10 @@ class urx_ros:
 
         self.robot_pose = PoseStamped()
         self.camera_pose = PoseStamped()
+        self.prev_camera_pose = PoseStamped()
         self.pressure_ft_pose = PoseStamped()
+        self.cam_vel = Twist()
+        self.cam_speed = Float64()
         self.seq = 1
         self.pose = []
         self.initial_pose = []
@@ -249,9 +261,7 @@ class urx_ros:
 
         return self.move_TCP(full_transformation_matrix)
 
-
     def adjust_pose_callback(self, Pose_msg):
-
         current_TCP_to_desired_TCP = self.pose_to_transformation_matrix(Pose_msg)
 
         self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
@@ -285,31 +295,18 @@ class urx_ros:
 
         print("angle command received:", target_angle_msg)
 
-        #self.robot.translate_tool(self.cam_pose_correction, self.acc, self.vel, wait=False) #TODO:place better
+        current_TCP_to_desired_TCP = np.eye(4)
+        current_TCP_to_desired_TCP[:3, :3] = R.from_rotvec([0, 0, target_angle_msg.data]).as_dcm()
 
-        trans = self.robot.get_pose()  # get current transformation matrix (tool to base)
-        
-        if abs(target_angle_msg.data) > 1:
-            target_angle_msg.data = target_angle_msg.data / abs(target_angle_msg.data)
-
-        trans.orient.rotate_z(target_angle_msg.data)
-
-        self.robot.set_pose(trans, wait=False, acc=0.5, vel=0.2)  # apply the new pose
+        self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
 
     def angle_callback_x(self, target_angle_msg):
 
-        print("angle command received:", target_angle_msg)
+        current_TCP_to_desired_TCP = np.eye(4)
+        current_TCP_to_desired_TCP[:3, :3] = R.from_rotvec([target_angle_msg.data, 0, 0,]).as_dcm()
 
-        #self.robot.translate_tool(self.cam_pose_correction, self.acc, self.vel, wait=False) #TODO:place better
+        self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
 
-        trans = self.robot.get_pose()  # get current transformation matrix (tool to base)
-        
-        if abs(target_angle_msg.data) > 1:
-            target_angle_msg.data = target_angle_msg.data / abs(target_angle_msg.data)
-
-        trans.orient.rotate_x(target_angle_msg.data)
-
-        self.robot.set_pose(trans, wait=False, acc=0.5, vel=0.1)  # apply the new pose
 
     def robot_rotate_z_calback(self, angle):
         current_joints = self.robot.getj()
@@ -322,6 +319,8 @@ class urx_ros:
             self.update_poses()
             self.pose_publisher.publish(self.robot_pose)
             self.cam_pose_publisher.publish(self.camera_pose)
+            self.velocity_publisher.publish(self.cam_vel)
+            self.speed_publisher.publish(self.cam_speed)
 
             if (np.sum(np.abs(self.cmd_velocity_vector))!=0 or self.move_vel):
                 self.robot.speedl_tool(self.cmd_velocity_vector, self.acc, 1)
@@ -330,6 +329,17 @@ class urx_ros:
             self.rate.sleep()
         
         self.cleanup()
+    
+    def compute_rate(self, new_pose, old_pose):
+        dt = (new_pose.header.stamp.to_nsec() - old_pose.header.stamp.to_nsec()) * 1e-9
+        cam_velocity = Twist()
+        cam_velocity.linear.x = 0.5 * (new_pose.pose.position.x - old_pose.pose.position.x) / dt + 0.5 * self.cam_vel.linear.x
+        cam_velocity.linear.y = 0.5 * (new_pose.pose.position.y - old_pose.pose.position.y) / dt + 0.5 * self.cam_vel.linear.y
+        cam_velocity.linear.z = 0.5 * (new_pose.pose.position.z - old_pose.pose.position.z) / dt + 0.5 * self.cam_vel.linear.z
+
+        cam_speed = np.linalg.norm(np.array([cam_velocity.linear.x, cam_velocity.linear.y, cam_velocity.linear.z]))
+        return cam_velocity, cam_speed
+
 
     def update_poses(self):
         self.pose = self.robot.get_pose()
@@ -354,33 +364,23 @@ class urx_ros:
         self.pressure_ft_pose.header.frame_id = 'base'
         self.pressure_ft_pose.pose = self.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, TCP_to_pressure_foot))
 
+        self.cam_vel, self.cam_speed = self.compute_rate(self.camera_pose, self.prev_camera_pose)
+        self.prev_camera_pose = copy.deepcopy(self.camera_pose)
+
 
     def pick_item(self, req):
 
-        self.robot.translate_tool(self.holder_to_camera, self.acc, self.vel, wait=False)
+        current_TCP_to_desired_TCP = np.array([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., (self.camera_pose.pose.position.z - self.item_height)], [0., 0., 0., 1.]])
 
-        rospy.sleep(1)
-
-        last_pose = self.robot.get_pose()
-        
-        pickup_pose = copy.copy(last_pose)
-
-        pickup_pose.pos.z = self.item_height
-        pickup_pose.pos.x = pickup_pose.pos.x + self.cam_pose_correction[0]
-        pickup_pose.pos.y = pickup_pose.pos.y + self.cam_pose_correction[1]
-
-        command_attitude = R.from_matrix(pickup_pose.orient.list)
-        attitude_rot_vec = command_attitude.as_rotvec()
-        
-        self.robot.movel((pickup_pose.pos.x, pickup_pose.pos.y, pickup_pose.pos.z, attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]), self.acc, self.vel, wait=False)
-        
-        rospy.sleep(6)
+        self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
 
         self.robot.set_digital_out(0, True)
         
         rospy.sleep(0.1)
 
-        #self.robot.movel((last_pose.pos.x, last_pose.pos.y, last_pose.pos.z, attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]), self.acc, self.vel, wait=False)
+        current_TCP_to_desired_TCP = np.array([[1., 0., 0., 0.], [0., 1., 0., 0.], [0., 0., 1., -(self.camera_pose.pose.position.z - self.item_height)], [0., 0., 0., 1.]])
+
+        self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
 
         return []
     
