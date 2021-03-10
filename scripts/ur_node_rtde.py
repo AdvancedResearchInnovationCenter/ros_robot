@@ -539,6 +539,6 @@ class urx_ros:
         pass
         
 if __name__ == '__main__':
-    robot = urx_ros("192.168.0.110")
+    robot = urx_ros("192.168.50.110")
     robot.run_node()
     exit()

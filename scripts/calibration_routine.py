@@ -17,9 +17,13 @@ from ur_node import urx_ros
 from multiprocessing import Process
 import thread
 import random
+import copy
 
 # checkerboard_to_center = np.array([0.09, 0.06, 0]).reshape(3, -1) (8,5) chessboard
 checkerboard_to_center = np.array([0.135, 0.135, 0]).reshape(3, -1)
+
+
+base_to_marker = np.array([[-1, 0, 0, -0.05], [0, 1, 0, -0.619], [0,0, -1, 0.1], [0,0,0,1]])
 
 class ur10_camera_calibration:
 
@@ -37,7 +41,7 @@ class ur10_camera_calibration:
         self.object_points[:,:2] = 3*np.mgrid[0:self.checkerboard_dim[0], 0:self.checkerboard_dim[1]].T.reshape(-1,2)
 
         #Aruco properties
-        self.aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_50)
+        self.aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
         self.aruco_size = 0.06
         self.aruco_params = aruco.DetectorParameters_create()
         self.aruco_params.cornerRefinementMethod = aruco.CORNER_REFINE_SUBPIX
@@ -46,27 +50,27 @@ class ur10_camera_calibration:
         self.aruco_params.cornerRefinementMaxIterations = 5
 
         #Charuco properties
-        self.charuco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
+        self.charuco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
         self.CHARUCO_BOARD = aruco.CharucoBoard_create(
-                squaresX=18,
-                squaresY=18,
-                squareLength=0.015,
-                markerLength=0.01,
+                squaresX=8,
+                squaresY=12,
+                squareLength=0.025,
+                markerLength=0.020,
                 dictionary=self.charuco_dict)
 
         self.image_counter = 1
-        self.images_directory = 'davis_calibration/'
+        self.images_directory = 'davis240_calibration/'
 
-        self.dump_file_name = 'calibration_data' + str(date.today()) + '.pickle'
+        self.dump_file_name = 'davis240_calibration_data' + str(date.today()) + '.pickle'
 
         self.mtx = []
         self.dist = []
 
         #Calibration specifications
-        self.max_angle = 0.3
-        self.N_cycle = 3
+        self.max_angle = 0.6
+        self.N_cycle = 4
         self.N_pose_per_cycle = 10
-        self.radius = 0.6
+        self.radius = 0.25
 
         self.dump_data_list = []
 
@@ -104,7 +108,7 @@ class ur10_camera_calibration:
 
                 transformation_matrix = np.eye(4)
                 transformation_matrix[:3,:3] = R.from_rotvec([rx, ry, rz]).as_dcm().transpose()
-                transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.1 * (random.random() - 0.5), 0.1 * (random.random() - 0.5), -self.radius + 0.2 * (random.random() - 0.5)])).reshape(3)
+                transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.04 * (random.random() - 0.5), 0.04 * (random.random() - 0.5), -self.radius + 0.0 * (random.random() - 0.5)])).reshape(3)
                 self.calibration_poses.append(transformation_matrix)
 
 
@@ -112,9 +116,13 @@ class ur10_camera_calibration:
 
         ros_image = rospy.wait_for_message(self.ros_image_topic, Image)
 
-        image = self.cv_bridge.imgmsg_to_cv2(ros_image, desired_encoding='bgr8')
+        # image = self.cv_bridge.imgmsg_to_cv2(ros_image, desired_encoding='bgr8')
 
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        image = self.cv_bridge.imgmsg_to_cv2(ros_image, desired_encoding='mono8')
+
+        gray = copy.deepcopy(image)
 
         return image, gray
 
@@ -147,7 +155,7 @@ class ur10_camera_calibration:
             image=input_image,
             board=self.CHARUCO_BOARD) 
 
-        while response < 6:
+        while response < 4:
             raw_input('Checkerboard not found, manually update ur pose and try again')
             color_img, input_image = self.getRosImage()
 
@@ -163,18 +171,18 @@ class ur10_camera_calibration:
                 board=self.CHARUCO_BOARD)
             
         
-        rvec = np.empty(shape=(1,))
-        tvec = np.empty(shape=(1,))
-        retval, rvecs, tvecs = aruco.estimatePoseCharucoBoard(chararuco_corners, chararuco_ids, self.CHARUCO_BOARD, self.mtx, self.dist, rvec, tvec)
+        # rvec = np.empty(shape=(1,))
+        # tvec = np.empty(shape=(1,))
+        # retval, rvecs, tvecs = aruco.estimatePoseCharucoBoard(chararuco_corners, chararuco_ids, self.CHARUCO_BOARD, self.mtx, self.dist, rvec, tvec)
 
-        aruco_correction_dcm = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
+        # aruco_correction_dcm = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
 
-        rotation = R.from_rotvec(np.array(rvecs).reshape(3))
-        rotmax = np.matmul(aruco_correction_dcm, rotation.as_dcm())
+        # rotation = R.from_rotvec(np.array(rvecs).reshape(3))
+        # rotmax = np.matmul(aruco_correction_dcm, rotation.as_dcm())
 
         
-        translation = np.array(tvecs).reshape(3, -1) + np.matmul(rotmax, checkerboard_to_center)
-        return translation, rotmax
+        # translation = np.array(tvecs).reshape(3, -1) + np.matmul(rotmax, checkerboard_to_center)
+        # return translation, rotmax
     
     
     def getCheckerboarPose(self, input_image):
@@ -308,7 +316,6 @@ class ur10_camera_calibration:
     def performSemiAutoCalibRoutine(self):
         rospy.sleep(2)
 
-        base_to_marker = np.array([[-1, 0, 0, -0.05], [0, 1, 0, -0.619], [0,0, -1, 0.1], [0,0,0,1]])
         self.robot.set_transform('base', 'aruco', base_to_marker, mode='static')
         raw_input("Check rviz, then proceed ...")
 
@@ -328,9 +335,11 @@ class ur10_camera_calibration:
 
             original_img, input_img = self.getRosImage() 
 
-            while not self.check_checkerboard(input_img):
-                raw_input('Checkerboard not found, manually update ur pose and try again')
-                _, input_img = self.getRosImage()    
+            # while not self.check_checkerboard(input_img):
+            #     raw_input('Checkerboard not found, manually update ur pose and try again')
+            #     _, input_img = self.getRosImage()   
+            self.getChArucoPose(input_img) 
+            original_img, input_img = self.getRosImage() 
 
             current_EE_tvec, current_EE_rot = self.getEEPose()
             current_ee_transformation = np.vstack([np.c_[current_EE_rot, current_EE_tvec.reshape(3,-1)], [0, 0, 0, 1]])
@@ -354,7 +363,7 @@ class ur10_camera_calibration:
 
 if __name__ == '__main__':
 
-    robot = ur10_camera_calibration("192.168.0.110", (8,5), 'calibration_2021-01-14.pickle')
+    robot = ur10_camera_calibration("192.168.50.110", (8,5), 'calibration_2021-01-14.pickle')
     thread.start_new_thread( robot.robot.run_node, () )
     # thread.start_new_thread( robot.performAutoCalibRoutine, () )
     thread.start_new_thread( robot.performSemiAutoCalibRoutine, () )

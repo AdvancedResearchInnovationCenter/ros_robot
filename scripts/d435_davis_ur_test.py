@@ -311,7 +311,7 @@ class urx_ros:
 
             self.update_poses()
             self.pose_publisher.publish(self.robot_pose)
-            self.cam_pose_publisher.publish(self.camera_pose)
+            self.cam_pose_publisher.publish(self.davis_pose)
 
             if (np.sum(np.abs(self.cmd_velocity_vector))!=0 or self.move_vel):
                 self.robot.speedl_tool(self.cmd_velocity_vector, self.acc, 1)
@@ -336,9 +336,9 @@ class urx_ros:
         self.robot_pose.header.frame_id = 'base'
         self.robot_pose.pose = self.transformation_matrix_to_pose(TCP_transformation_matrix)
 
-        self.camera_pose.header.stamp = rospy.Time.now()
-        self.camera_pose.header.frame_id = 'base'
-        self.camera_pose.pose = self.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, TCP_to_cam))
+        self.davis_pose.header.stamp = rospy.Time.now()
+        self.davis_pose.header.frame_id = 'base'
+        self.davis_pose.pose = self.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, TCP_to_cam))
 
         self.camera_pose.header.stamp = rospy.Time.now()
         self.camera_pose.header.frame_id = 'base'
