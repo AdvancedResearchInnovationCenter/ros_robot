@@ -4,10 +4,12 @@ functions for UR robots using the ur_rtde package
 """
 import rtde_control, rtde_receive, rtde_io
 import rospy
+from robot_base import Robot
 
 
-class UrRtde:
+class UrRtde(Robot):
     def __init__(self, robot_ip):
+        Robot.__init__(self)
         self.robot_ip = robot_ip
         self.robot_c = rtde_control.RTDEControlInterface(robot_ip)#urx.Robot(robot_ip, True)
         self.robot_r = rtde_receive.RTDEReceiveInterface(robot_ip)#urx.Robot(robot_ip, True)
