@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(URX)
+project(ros_robot_pkg)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+# find_package(Boost 1.65 EXACT REQUIRED COMPONENTS system)
 # find_package(python-numpy REQUIRED)
 # find_package(python-sys REQUIRED)
 # find_package(python-math REQUIRED)
@@ -59,9 +59,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
-   moveUR.srv
+   moveRobot.srv
    desiredTCP.srv
-   fireDrill.srv
+   pegHole.srv
  )
 
 

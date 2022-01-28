@@ -1,5 +1,5 @@
 """
-This script includes a class and methods for robot control kinematics
+This script includes a class and methods for robot kinematics
 """
 
 import numpy as np
@@ -9,7 +9,7 @@ import tf2_ros
 import datetime
 from scipy.spatial.transform import Rotation as R
 
-class robot_kinematics:
+class RobotKinematics:
     """
     This is a class for robot kinematics functionality compatible with tf trees
     """
@@ -20,6 +20,8 @@ class robot_kinematics:
         self.br = tf2_ros.TransformBroadcaster()
         self.brs = tf2_ros.StaticTransformBroadcaster()
 
+        self.static_transform_list = []
+
 
     def set_transform(self, parent, frame, transformation_matrix, mode='normal'):
         #Sends a transform to the tf tree
@@ -28,8 +30,8 @@ class robot_kinematics:
         t.header.frame_id = parent
         t.child_frame_id = frame
 
-        t.transform = self.transformation_matrix_to_tf_transform(transformation_matrix)      
-
+        t.transform = self.transformation_matrix_to_tf_transform(transformation_matrix)
+        
         if mode=='normal':
             self.br.sendTransform(t)
         elif mode=='static':
@@ -120,7 +122,7 @@ class robot_kinematics:
 
     def receive_transform(self, parent, frame):
         #receive transform from tf tree
-        transform = self.tfBuffer.lookup_transform(parent, frame, rospy.Time())
+        transform = self.tfBuffer.lookup_transform(parent, frame, rospy.Time(),timeout=rospy.Duration(secs=1))
         transformation_matrix = self.tf_transform_to_transformation_matrix(transform.transform)
 
         return transform, transformation_matrix
@@ -130,5 +132,42 @@ class robot_kinematics:
         transform = self.tfBuffer.lookup_transform(parent, frame, rospy.Time().now(), timeout=rospy.Duration(secs=3))
         transformation_matrix = self.tf_transform_to_transformation_matrix(transform.transform)
 
-        return transform, transformation_matrix 
+        return transform, transformation_matrix
+
+    def convert_vector_base_frame(self, vector, parent, target):
+        #convert a 3D vector from parent frame to target
+        _, tranform_matrix = self.receive_transform(parent, target)
+        rot_matrix = tranform_matrix[:3, :3]
+        return np.matmul(rot_matrix, vector.reshape((3,1)))
+
+    
+    def add_transformations(self, transformation_matrix_a, transformation_matrix_b):
+        #Combine two transformation matrices
+        return np.matmul(transformation_matrix_a, transformation_matrix_b)
+
+    def subtract_transformations(self, transformation_matrix_a, transformation_matrix_b):
+        #get the difference between two transformation matrices
+        result_rotation = np.matmul(transformation_matrix_a[:3,:3], transformation_matrix_b[:3,:3].transpose())
+
+        result_translation = transformation_matrix_a[:3, 3] - np.matmul(transformation_matrix_a[:3,:3], np.matmul(transformation_matrix_b[:3,:3].transpose(), transformation_matrix_b[:3, 3]))
+
+        result_transformation = np.eye(4)
+        result_transformation[:3, :3] = result_rotation
+        result_transformation[:3, 3] = result_translation
+
+        return result_transformation
+
+    def convert_wrench_base_frame(self, wrench, parent, target):
+        #convert a 3D vector from parent frame to target
+        _, tranform_matrix = self.receive_transform(parent, target)
+
+        skew_symmetrix_pose = np.array([ [0, -tranform_matrix[2, 3], -tranform_matrix[1, 3]], [tranform_matrix[2, 3], 0, -tranform_matrix[0, 3]], [-tranform_matrix[1, 3], tranform_matrix[0, 3], 0] ])
+        
+        adjoint_matrix = np.zeros((6,6))
+        adjoint_matrix = np.zeros((6,6))
+        adjoint_matrix[0:3, 0:3] = np.transpose(tranform_matrix[:3,:3])
+        adjoint_matrix[3:6, 3:6] = np.transpose(tranform_matrix[:3,:3])
+        adjoint_matrix[3:6, 0:3] = np.matmul(np.transpose(tranform_matrix[:3,:3]), np.transpose(skew_symmetrix_pose))
+    
+        return np.matmul(adjoint_matrix, wrench.reshape(6,1))
 
