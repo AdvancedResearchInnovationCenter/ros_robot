@@ -23,6 +23,15 @@ class UrRtde(Robot):
                 self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel/5, acc/5)
             else:
                 self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel, acc)
+
+    
+    def move_TCP_compound(self, pose_vec_list, vel, acc, blend=0.1, slow=False):
+        pose_list = []
+        print(pose_vec_list)
+        for pose_vec in pose_vec_list:
+            pose_list.append([pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5], vel, acc, blend])
+        print(pose_list)
+        self.robot_c.moveL(pose_list, vel, acc) #TODO: Debug wait
     
     def speed_command(self, twist_vec, acc):
         self.robot_c.speedL(twist_vec, acc, 0)

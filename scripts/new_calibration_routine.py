@@ -13,25 +13,35 @@ from scipy.spatial.transform import Rotation as R
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from datetime import date
-from ur_node import urx_ros
+from ros_robot import RosRobot
 from multiprocessing import Process
 import thread
+from ur_rtde import UrRtde
+from abb_ros import AbbRobot
 import random
 import copy
 
-# checkerboard_to_center = np.array([0.09, 0.06, 0]).reshape(3, -1) (8,5) chessboard
-checkerboard_to_center = np.array([0.135, 0.135, 0]).reshape(3, -1)
+checkerboard_to_center = np.array([0.135, 0.135, 0]).reshape(3, -1) #KU big one
+# checkerboard_to_center = np.array([0.025, 0.02, 0]).reshape(3, -1) #KU small one
 
 
-base_to_marker = np.array([[-1, 0, 0, -0.05], [0, 1, 0, -0.619], [0,0, -1, 0.1], [0,0,0,1]])
+base_to_marker = np.array([[-1, 0, 0, -0.00], [0, 1, 0, -0.66], [0,0, -1, 0.], [0,0,0,1]])#KU UR config
+# base_to_marker = np.array([[-1, 0, 0, -0.095], [0, 1, 0, -0.925], [0,0, -1, 0.2], [0,0,0,1]])#KU ABB config
 
-class ur10_camera_calibration:
+
+class robot_camera_calibration:
 
     def __init__(self, robot_ip, chess_size, calibration_file, mode='auto'):
         time.sleep(0.2)
-        self.robot = urx_ros(robot_ip)
+
+        self.ur_robot = UrRtde("192.168.50.110")
+        self.robot = RosRobot(self.ur_robot)
+        # self.abb_robot = AbbRobot('192.168.125.1')
+        # self.robot = RosRobot(self.abb_robot)
         
-        self.ros_image_topic = "/dvs/image_raw"
+        # self.ros_image_topic = "/debur_cam/image_raw"
+        # self.ros_image_topic = "/dvs/image_raw"
+        self.ros_image_topic = "/camera/color/image_raw"
         self.cv_bridge = CvBridge()
 
         #Checkerboard properties
@@ -46,31 +56,54 @@ class ur10_camera_calibration:
         self.aruco_params = aruco.DetectorParameters_create()
         self.aruco_params.cornerRefinementMethod = aruco.CORNER_REFINE_SUBPIX
         self.aruco_params.cornerRefinementWinSize = 5
-        self.aruco_params.cornerRefinementMinAccuracy = 0.001
-        self.aruco_params.cornerRefinementMaxIterations = 5
+        self.aruco_params.cornerRefinementMinAccuracy = 0.01
+        self.aruco_params.cornerRefinementMaxIterations = 10
 
         #Charuco properties
-        self.charuco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
+        self.charuco_dict = aruco.Dictionary_get(aruco.DICT_4X4_1000)
         self.CHARUCO_BOARD = aruco.CharucoBoard_create(
                 squaresX=8,
                 squaresY=12,
-                squareLength=0.025,
-                markerLength=0.020,
-                dictionary=self.charuco_dict)
+                squareLength=0.0227,
+                markerLength=0.0198,
+                dictionary=self.charuco_dict) #KU big one
+        # self.CHARUCO_BOARD = aruco.CharucoBoard_create(
+        #         squaresX=8,
+        #         squaresY=11,
+        #         squareLength=0.005,
+        #         markerLength=0.004,
+        #         dictionary=self.charuco_dict) #KU small one
+        # self.CHARUCO_BOARD = aruco.CharucoBoard_create(
+        #         squaresX=8,
+        #         squaresY=10,
+        #         squareLength=0.01963,
+        #         markerLength=0.00986,
+        #         dictionary=self.charuco_dict) #STRATA
 
         self.image_counter = 1
-        self.images_directory = 'davis240_calibration/'
+        # self.images_directory = 'debur_cam_calibration/'
+        # self.images_directory = 'tactile_calibration/'
+        self.images_directory = 'd435_calibration/'
 
-        self.dump_file_name = 'davis240_calibration_data' + str(date.today()) + '.pickle'
+        self.dump_file_name = 'd435_calibration_data' + str(date.today()) + '.pickle'
+        # self.dump_file_name = 'tactile_calibration_data' + str(date.today()) + '.pickle'
+        # self.dump_file_name = 'debur_cam_calibration_data' + str(date.today()) + '.pickle'
 
         self.mtx = []
         self.dist = []
 
-        #Calibration specifications
-        self.max_angle = 0.6
-        self.N_cycle = 4
-        self.N_pose_per_cycle = 10
-        self.radius = 0.25
+        #Calibration specifications for big KU aruco
+        self.max_angle = 0.4#0.4
+        self.N_cycle = 5#5
+        self.N_pose_per_cycle = 10 #20
+        self.radius = [0.25, 0.3]
+
+
+        #Calibration specifications for small KU aruco
+        # self.max_angle = 0.08#0.4
+        # self.N_cycle = 3#5
+        # self.N_pose_per_cycle = 7 #20
+        # self.radius = [0.105, 0.1]
 
         self.dump_data_list = []
 
@@ -94,7 +127,7 @@ class ur10_camera_calibration:
 
         #center pose
         transformation_matrix = np.eye(4)
-        transformation_matrix[2,3] = -self.radius
+        transformation_matrix[2,3] = -self.radius[0]
         self.calibration_poses.append(transformation_matrix)
 
         for i in range(self.N_cycle):
@@ -104,11 +137,12 @@ class ur10_camera_calibration:
 
                 rx = theta * math.cos(phi)
                 ry = theta * math.sin(phi)
-                rz = 0
+                rz = 0.5 * (random.random()-0.5)
 
                 transformation_matrix = np.eye(4)
                 transformation_matrix[:3,:3] = R.from_rotvec([rx, ry, rz]).as_dcm().transpose()
-                transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.04 * (random.random() - 0.5), 0.04 * (random.random() - 0.5), -self.radius + 0.0 * (random.random() - 0.5)])).reshape(3)
+                transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.1 * (random.random() - 0.5), 0.1 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big KU ARUCO
+                # transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.02 * (random.random() - 0.5), 0.02 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big small ARUCO
                 self.calibration_poses.append(transformation_matrix)
 
 
@@ -154,7 +188,7 @@ class ur10_camera_calibration:
             markerIds=ids,
             image=input_image,
             board=self.CHARUCO_BOARD) 
-
+            
         while response < 4:
             raw_input('Checkerboard not found, manually update ur pose and try again')
             color_img, input_image = self.getRosImage()
@@ -170,6 +204,7 @@ class ur10_camera_calibration:
                 image=input_image,
                 board=self.CHARUCO_BOARD)
             
+        print(response)
         
         # rvec = np.empty(shape=(1,))
         # tvec = np.empty(shape=(1,))
@@ -222,11 +257,11 @@ class ur10_camera_calibration:
         return ret
     
     def getEEPose(self):
-        robot_pose = self.robot.robot.get_pose()
+        robot_pose = self.robot.robot_controller.get_pose()
 
-        tvec = [robot_pose.pos[0], robot_pose.pos[1], robot_pose.pos[2]]
+        tvec = [robot_pose[0], robot_pose[1], robot_pose[2]]
 
-        return np.array(tvec), robot_pose.orient.list
+        return np.array(tvec), R.from_rotvec(robot_pose[3:6]).as_dcm()
 
     def dumpData(self, image_name_list, ee_pose_list, aruco_pose_list):
 
@@ -236,7 +271,7 @@ class ur10_camera_calibration:
         rospy.sleep(2)
 
         #Get initial aruco pose
-        _, base_to_camera = self.robot.wait_for_transform('base', 'davis')
+        _, base_to_camera = self.robot.wait_for_transform('ur_base', 'davis')
 
         original_img, input_img = self.getRosImage()        
 
@@ -245,7 +280,7 @@ class ur10_camera_calibration:
         print(current_marker_transformation)
 
         base_to_marker = self.robot.add_transformations(base_to_camera, current_marker_transformation)
-        self.robot.set_transform('base', 'aruco', base_to_marker, mode='static')
+        self.robot.kinematics.set_transform('ur_base', 'aruco', base_to_marker, mode='static')
 
         raw_input("Check rviz, then proceed ...")
 
@@ -253,9 +288,9 @@ class ur10_camera_calibration:
         for target_pose in self.calibration_poses:
             print('Target pose:', target_pose)
 
-            self.robot.set_transform('aruco', 'desired_cam', target_pose, mode='static')
+            self.robot.kinematics.set_transform('aruco', 'desired_cam', target_pose, mode='static')
             rospy.sleep(0.2)
-            _, base_to_target = self.robot.receive_transform('base', 'desired_cam')
+            _, base_to_target = self.robot.receive_transform('ur_base', 'desired_cam')
             
             self.robot.set_TCP('davis')
             pose_msg = self.robot.transformation_matrix_to_pose(base_to_target)
@@ -314,21 +349,21 @@ class ur10_camera_calibration:
                 break
 
     def performSemiAutoCalibRoutine(self):
-        rospy.sleep(2)
+        rospy.sleep(1)
 
-        self.robot.set_transform('base', 'aruco', base_to_marker, mode='static')
+        self.robot.kinematics.set_transform('ur_base', 'aruco', base_to_marker, mode='static')
         raw_input("Check rviz, then proceed ...")
 
         #start routine 
         for target_pose in self.calibration_poses:
             print('Target pose:', target_pose)
 
-            self.robot.set_transform('aruco', 'desired_cam', target_pose, mode='static')
+            self.robot.kinematics.set_transform('aruco', 'desired_cam', target_pose, mode='static')
             rospy.sleep(0.2)
-            _, base_to_target = self.robot.receive_transform('base', 'desired_cam')
+            _, base_to_target = self.robot.kinematics.receive_transform('ur_base', 'desired_cam')
             
             self.robot.set_TCP('davis')
-            pose_msg = self.robot.transformation_matrix_to_pose(base_to_target)
+            pose_msg = self.robot.kinematics.transformation_matrix_to_pose(base_to_target)
             self.robot.move_to_pose(pose_msg)
             rospy.sleep(3)
 
@@ -362,11 +397,25 @@ class ur10_camera_calibration:
 
 
 if __name__ == '__main__':
+    # charuco_dict = aruco.Dictionary_get(aruco.DICT_4X4_1000)
+    # CHARUCO_BOARD = aruco.CharucoBoard_create(
+    #             squaresX=2,
+    #             squaresY=2,
+    #             squareLength=0.023,
+    #             markerLength=0.02,
+    #             dictionary=charuco_dict)
 
-    robot = ur10_camera_calibration("192.168.50.110", (8,5), 'calibration_2021-01-14.pickle')
+    # img = CHARUCO_BOARD.draw((2480, 2480))
+    # clr_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # black_idx = np.where((clr_img == [0, 0, 0]).all(axis=2))
+    # clr_img[black_idx] = [0, 255, 0]
+    # cv2.imwrite('charuco.jpg', img)
+
+    robot = robot_camera_calibration("192.168.50.110", (8,5), 'calibration_2021-01-14.pickle', 'semi_auto')
     thread.start_new_thread( robot.robot.run_node, () )
     # thread.start_new_thread( robot.performAutoCalibRoutine, () )
     thread.start_new_thread( robot.performSemiAutoCalibRoutine, () )
+
     
     while not rospy.is_shutdown():
         pass

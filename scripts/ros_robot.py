@@ -17,6 +17,7 @@ import time
 import copy
 from ur_rtde import UrRtde
 import thread
+from abb_ros import AbbRobot
 
 
 #TODO: transform to urdf
@@ -32,11 +33,45 @@ g[2,3] = 0.00
 TCP_to_pressure_foot = np.matmul(TCP_to_pressure_foot, g)
 
 #davis346 deburring mount on robot
-TCP_to_cam = np.array([ [-0.70417779, -0.02482665, -0.70958951, -0.08241791],
-                        [  -0.70992744,  0.00816375,  0.70422751,  0.0814719 ],
-                        [  -0.01169069,  0.99965844, -0.02337385,  0.03069571],
-                        [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
+# TCP_to_cam = np.array([ [-0.70417779, -0.02482665, -0.70958951, -0.08241791],
+#                         [  -0.70992744,  0.00816375,  0.70422751,  0.0814719 ],
+#                         [  -0.01169069,  0.99965844, -0.02337385,  0.03069571],
+#                         [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
 
+#Normal tactile sensor mount
+# TCP_to_cam = np.array([ [1., 0., 0., -0.0],
+#                         [0., 0., 1.,  0.07 ],
+#                         [0., -1., 0.,  0.06],
+#                         [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
+# TCP_to_cam[1,3] = 0.07
+# TCP_to_cam[2,3] = 0.06
+
+
+# #d435 huang's configuration
+# TCP_to_cam = np.array([ [0.71816448,  0.00808576,  0.69582641,  0.03926356],
+#                         [-0.69540667, -0.02827723,  0.71805986,  0.08717657],
+#                         [0.0254821,  -0.99956742, -0.01468481,  0.09887745],
+#                         [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
+
+
+#visuotactile on abb
+# TCP_to_cam = np.array([ [0.7071,  0.00808576,  0.7071,  0.0],
+#                         [-0.7071, 0.0,  0.7071,  0.0],
+#                         [0.0,  -1.0, 0.0,  0.07],
+#                         [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
+
+#Halwani's sensor on the ABB
+TCP_to_cam = np.array([[ 0.6949,  -0.0575,  0.7168,  0.0496],
+                        [-0.7178, 0.0050,  0.6962, 0.0091],
+                        [-0.0437, -0.9983, -0.0378,  0.0779],
+                        [ 0.,          0.,          0.,          1.        ]])
+
+          
+#d435 on SANAD's gripper
+# TCP_to_cam = np.array([[ 0.0, -1.0, 0.0, 0.04],
+#                         [ 1.0, 0.0, 0.0, 0.0],
+#                         [ 0.0, 0.0, 1.0,  0.07018859],
+#                         [ 0.,          0.,          0.,          1.        ]])
 
 class RosRobot:
     """
@@ -56,7 +91,7 @@ class RosRobot:
         self.VS_2D_mode = True
         self.VS_2D_initialized = False
 
-        assert isinstance(robot_controller, UrRtde)
+        # assert isinstance(robot_controller, UrRtde)
         self.robot_controller = robot_controller
 
         self.current_TCP = 'davis'
@@ -67,6 +102,7 @@ class RosRobot:
         #ros publishers and subscribers
         self.ros_node = rospy.init_node('ur10_node', anonymous=True)
         self.pose_publisher = rospy.Publisher('tcp_pose', PoseStamped, queue_size=1) #publish pose of robot flange relative to base
+        self.tcp_velocity_publisher = rospy.Publisher('/tcp/vel', Twist, queue_size=1) #publish velocity of camera in camera frame
         self.velocity_publisher = rospy.Publisher('/dvs/vel', Twist, queue_size=1) #publish velocity of camera in camera frame
         self.speed_publisher = rospy.Publisher('/dvs/spd', Float64, queue_size=1) #publish speed of camera
         self.cam_pose_publisher = rospy.Publisher('/dvs/pose', PoseStamped, queue_size=1)  #publish pose of camera relative to base
@@ -98,6 +134,7 @@ class RosRobot:
         self.pre_insertion_davis_pose = Pose()
         self.ur_force = Twist()
         self.cam_vel = Twist()
+        self.tcp_vel = Twist()
         self.cam_speed = Float64()
         self.seq = 1
         self.pose = []
@@ -173,6 +210,19 @@ class RosRobot:
         full_transformation_matrix = self.kinematics.add_transformations(transformation_matrix, desired_to_org_TCP)
 
         return self.move_TCP(full_transformation_matrix, slow)
+
+    def move_to_pose_list(self, pose_msg_list, slow=False):
+        desired_transformation_list = []
+        for pose_msg in pose_msg_list:
+            transformation_matrix = self.kinematics.pose_to_transformation_matrix(pose_msg)
+
+            _, desired_to_org_TCP = self.kinematics.receive_transform(self.current_TCP, 'TCP')
+
+            full_transformation_matrix = self.kinematics.add_transformations(transformation_matrix, desired_to_org_TCP)
+
+            desired_transformation_list.append(full_transformation_matrix)
+
+        return self.move_TCP_list(desired_transformation_list, slow)
         
 
     def adjust_pose_callback(self, Pose_msg):
@@ -207,6 +257,22 @@ class RosRobot:
         #TODO: check pose arrival
         return True
 
+    def move_TCP_list(self, desired_transformation_list, slow=False):
+        pose_vec_list = []
+        for desired_transformation in desired_transformation_list:
+            command_trans = desired_transformation[:3, 3]
+            command_attitude = R.from_dcm(desired_transformation[:3, :3])
+            attitude_rot_vec = command_attitude.as_rotvec()
+            pose_vec = [command_trans[0], command_trans[1], command_trans[2], attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]]
+
+            pose_vec_list.append(copy.deepcopy(pose_vec))
+
+        self.robot_controller.move_TCP_compound(pose_vec_list, self.vel, self.acc, blend=0.1, slow=slow)
+        
+        self.update_poses()
+
+        #TODO: check pose arrival
+        return True
 
     def angle_callback_z(self, target_angle_msg):
         #rotate end effector around z axis of TCP
@@ -227,11 +293,16 @@ class RosRobot:
 
 
     def run_node(self):
+
+        self.kinematics.set_transform('ur_base', 'TCP', np.eye(4))
+        time.sleep(1)
+
         while not rospy.is_shutdown():
 
             self.update_poses()
             self.pose_publisher.publish(self.robot_pose)
             self.cam_pose_publisher.publish(self.camera_pose)
+            self.tcp_velocity_publisher.publish(self.tcp_vel)
             self.velocity_publisher.publish(self.cam_vel)
             self.speed_publisher.publish(self.cam_speed)
             self.arm_force_publisher.publish(self.ur_force)
@@ -276,9 +347,18 @@ class RosRobot:
         self.pressure_ft_pose.pose = self.kinematics.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, TCP_to_pressure_foot))
 
         cam_velocity = self.robot_controller.get_vel()
+        tcp_velocity_l = self.kinematics.convert_vector_base_frame(np.array(cam_velocity[:3]), 'TCP', 'ur_base')
+        tcp_velocity_w = self.kinematics.convert_vector_base_frame(np.array(cam_velocity[3:]), 'TCP', 'ur_base')
+
+        self.tcp_vel.linear.x = tcp_velocity_l[0]
+        self.tcp_vel.linear.y = tcp_velocity_l[1]
+        self.tcp_vel.linear.z = tcp_velocity_l[2]
+        self.tcp_vel.angular.x = tcp_velocity_w[0]
+        self.tcp_vel.angular.y = tcp_velocity_w[1]
+        self.tcp_vel.angular.z = tcp_velocity_w[2]
 
         #convert velocity to TCP frame 
-        cam_velocity_tcp = self.kinematics.convert_vector_base_frame(np.array(cam_velocity[:3]), 'TCP', 'davis')
+        cam_velocity_tcp = self.kinematics.convert_vector_base_frame(np.array(tcp_velocity_l), 'davis', 'TCP')
 
         self.cam_vel.linear.x = cam_velocity_tcp[0]
         self.cam_vel.linear.y = cam_velocity_tcp[1]
@@ -586,7 +666,8 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    robot = UrRtde("192.168.50.110")
+    # robot = UrRtde("192.168.50.110")
+    robot = AbbRobot('192.168.125.1')
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )
