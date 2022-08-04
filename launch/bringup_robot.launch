@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+	<!---=================================================================================================================================================================-->
+	<!-- load tool model -->
+	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/debur_with_tactile.urdf.xacro'" />
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+	<!---=================================================================================================================================================================-->
+	<!-- Robot Node -->
+    <node pkg="ros_robot_pkg" type="ros_robot.py" name="ros_robot"  output="screen">
+    </node>
+
+</launch>

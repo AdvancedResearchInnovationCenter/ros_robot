@@ -21,17 +21,17 @@ from abb_ros import AbbRobot
 import sys
 
 
-#TODO: transform to urdf
-TCP_to_pressure_foot = np.array([   [   -0.7140,         0,   -0.7001,   -0.1042],
-                                    [   -0.7001,   -0.0025,    0.7140,    0.1082],
-                                    [   -0.0018,    1.0000,    0.0018,    0.0922],
-                                    [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
+#Deburring end effector
+# TCP_to_pressure_foot = np.array([   [   -0.7140,         0,   -0.7001,   -0.1042],
+#                                     [   -0.7001,   -0.0025,    0.7140,    0.1082],
+#                                     [   -0.0018,    1.0000,    0.0018,    0.0922],
+#                                     [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
 
-g = np.eye(4)
-g[0,3] = 0.0036
-g[1,3] = -0.003
-g[2,3] = 0.00
-TCP_to_pressure_foot = np.matmul(TCP_to_pressure_foot, g)
+# g = np.eye(4)
+# g[0,3] = 0.0036
+# g[1,3] = -0.003
+# g[2,3] = 0.00
+# TCP_to_pressure_foot = np.matmul(TCP_to_pressure_foot, g)
 
 #davis346 deburring mount on robot
 # TCP_to_cam = np.array([ [-0.70417779, -0.02482665, -0.70958951, -0.08241791],
@@ -70,35 +70,25 @@ TCP_to_pressure_foot = np.matmul(TCP_to_pressure_foot, g)
 
 
 #Halwani's sensor on the UR10
-TCP_to_cam = np.array([[ 0.99866872,  0.02011093, -0.04750102 ,-0.10126922],
-                        [ 0.04747108,  0.00196362 , 0.99887068 , 0.07627988],
-                        [ 0.02018149, -0.99979583 , 0.00100631 , 0.11786909],
-                        [ 0. ,         0.    ,      0.   ,       1.        ]])
+# TCP_to_cam = np.array([[ 0.99866872,  0.02011093, -0.04750102 ,-0.10126922],
+#                         [ 0.04747108,  0.00196362 , 0.99887068 , 0.07627988],
+#                         [ 0.02018149, -0.99979583 , 0.00100631 , 0.11786909],
+#                         [ 0. ,         0.    ,      0.   ,       1.        ]])
 
-cam_to_sensor_ecoflex20 = np.array([[ 0.9999,  -0.0103, 0.0016,    -0.0015],
-                                    [0.0102,  0.9995, 0.0293,   -0.0028],
-                                    [ -0.0019, -0.0292, 0.9996,    0.0866],
-                                    [      0,       0,      0,    1.0000]])
+# cam_to_sensor_ecoflex20 = np.array([[ 0.9999,  -0.0103, 0.0016,    -0.0015],
+#                                     [0.0102,  0.9995, 0.0293,   -0.0028],
+#                                     [ -0.0019, -0.0292, 0.9996,    0.0866],
+#                                     [      0,       0,      0,    1.0000]])
 
-cam_to_sensor_DragonSkin30 = np.array(          [[ 1.0,  -0.0048, 0.0021,    0.0],
-                                                [0.0048,  1.0, -0.0046,   -0.0006],
-                                                [ -0.002, 0.0047, 1.0,    0.0872],
-                                                [      0,       0,      0,    1.0000]])
+# cam_to_sensor_DragonSkin30 = np.array(          [[ 1.0,  -0.0048, 0.0021,    0.0],
+#                                                 [0.0048,  1.0, -0.0046,   -0.0006],
+#                                                 [ -0.002, 0.0047, 1.0,    0.0872],
+#                                                 [      0,       0,      0,    1.0000]])
 
-TCP_to_sensor = np.matmul(TCP_to_cam, cam_to_sensor_ecoflex20)
+# TCP_to_sensor = np.matmul(TCP_to_cam, cam_to_sensor_ecoflex20)
 
-print(cam_to_sensor_ecoflex20)
-print(TCP_to_sensor)
+# TCP_to_cam = TCP_to_sensor                        
 
-TCP_to_cam = TCP_to_sensor                        
-
-
-          
-#d435 on SANAD's gripper
-# TCP_to_cam = np.array([[ 0.0, -1.0, 0.0, 0.04],
-#                         [ 1.0, 0.0, 0.0, 0.0],
-#                         [ 0.0, 0.0, 1.0,  0.07018859],
-#                         [ 0.,          0.,          0.,          1.        ]])
 
 class RosRobot:
     """
@@ -113,6 +103,9 @@ class RosRobot:
         self.move_vel = False
 
         self.item_height = 0.11
+        
+        self.TCP_to_cam_matrix = []
+        self.TCP_to_press_ft_matrix = []
 
         #visual servoing mode parameters
         self.VS_2D_mode = False#True
@@ -168,10 +161,9 @@ class RosRobot:
         self.initial_pose = []
         self.center_pose = []
 
-
         self.kinematics = RobotKinematics()
 
-        self.setup_tf()
+        # self.setup_tf()
 
     def setup_tf(self):
         self.kinematics.send_multiple_transform('TCP', ['pressure_ft', 'davis'], transformation_matrices=[TCP_to_pressure_foot, TCP_to_cam], mode='static')
@@ -367,13 +359,15 @@ class RosRobot:
 
         self.camera_pose.header.stamp = rospy.Time.now()
         self.camera_pose.header.frame_id = 'ur_base'
-        #_, TCP_to_cam_matrix = self.kinematics.receive_transform("TCP", "davis")  #TODO: case where this transformation does not exist
-        self.camera_pose.pose =  self.kinematics.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, TCP_to_cam))
+        if not len(self.TCP_to_cam_matrix): #check if TCP to cam static transformation has been read before
+            _, self.TCP_to_cam_matrix = self.kinematics.receive_transform("TCP", "davis")  #TODO: case where this transformation does not exist
+        self.camera_pose.pose =  self.kinematics.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, self.TCP_to_cam_matrix))
 
         self.pressure_ft_pose.header.stamp = rospy.Time.now()
         self.pressure_ft_pose.header.frame_id = 'ur_base'
-        #_, TCP_to_press_ft_matrix = self.kinematics.receive_transform('TCP', 'pressure_ft')#TODO: case where this transformation does not exist
-        self.pressure_ft_pose.pose = self.kinematics.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, TCP_to_pressure_foot))
+        if not len(self.TCP_to_press_ft_matrix):#check if TCP to pressure_ft static transformation has been read before
+            _, self.TCP_to_press_ft_matrix = self.kinematics.receive_transform('TCP', 'pressure_ft')#TODO: case where this transformation does not exist
+        self.pressure_ft_pose.pose = self.kinematics.transformation_matrix_to_pose(np.matmul(TCP_transformation_matrix, self.TCP_to_press_ft_matrix))
 
         cam_velocity = self.robot_controller.get_vel()
         tcp_velocity_l = self.kinematics.convert_vector_base_frame(np.array(cam_velocity[:3]), 'TCP', 'ur_base')
