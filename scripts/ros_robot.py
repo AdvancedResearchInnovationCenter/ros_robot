@@ -18,6 +18,7 @@ import copy
 from ur_rtde import UrRtde
 import thread
 from abb_ros import AbbRobot
+import sys
 
 
 #TODO: transform to urdf
@@ -61,10 +62,36 @@ TCP_to_pressure_foot = np.matmul(TCP_to_pressure_foot, g)
 #                         [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
 
 #Halwani's sensor on the ABB
-TCP_to_cam = np.array([[ 0.6949,  -0.0575,  0.7168,  0.0496],
-                        [-0.7178, 0.0050,  0.6962, 0.0091],
-                        [-0.0437, -0.9983, -0.0378,  0.0779],
-                        [ 0.,          0.,          0.,          1.        ]])
+# TCP_to_cam = np.array([[ 0.6949,  -0.0575,  0.7168,  0.0496],
+#                         [-0.7178, 0.0050,  0.6962, 0.0091],
+#                         [-0.0437, -0.9983, -0.0378,  0.0779],
+#                         [ 0.,          0.,          0.,          1.        ]])
+
+
+
+#Halwani's sensor on the UR10
+TCP_to_cam = np.array([[ 0.99866872,  0.02011093, -0.04750102 ,-0.10126922],
+                        [ 0.04747108,  0.00196362 , 0.99887068 , 0.07627988],
+                        [ 0.02018149, -0.99979583 , 0.00100631 , 0.11786909],
+                        [ 0. ,         0.    ,      0.   ,       1.        ]])
+
+cam_to_sensor_ecoflex20 = np.array([[ 0.9999,  -0.0103, 0.0016,    -0.0015],
+                                    [0.0102,  0.9995, 0.0293,   -0.0028],
+                                    [ -0.0019, -0.0292, 0.9996,    0.0866],
+                                    [      0,       0,      0,    1.0000]])
+
+cam_to_sensor_DragonSkin30 = np.array(          [[ 1.0,  -0.0048, 0.0021,    0.0],
+                                                [0.0048,  1.0, -0.0046,   -0.0006],
+                                                [ -0.002, 0.0047, 1.0,    0.0872],
+                                                [      0,       0,      0,    1.0000]])
+
+TCP_to_sensor = np.matmul(TCP_to_cam, cam_to_sensor_ecoflex20)
+
+print(cam_to_sensor_ecoflex20)
+print(TCP_to_sensor)
+
+TCP_to_cam = TCP_to_sensor                        
+
 
           
 #d435 on SANAD's gripper
@@ -88,7 +115,7 @@ class RosRobot:
         self.item_height = 0.11
 
         #visual servoing mode parameters
-        self.VS_2D_mode = True
+        self.VS_2D_mode = False#True
         self.VS_2D_initialized = False
 
         # assert isinstance(robot_controller, UrRtde)
@@ -168,6 +195,7 @@ class RosRobot:
     def move_robot_callback(self, twist_msg):
         #Callback to set specific velocity command to robot
         velocity_vector = np.array([twist_msg.linear.x, twist_msg.linear.y, twist_msg.linear.z]).reshape(3,-1)
+        angular_velocity_vector = np.array([twist_msg.angular.x, twist_msg.angular.y, twist_msg.angular.z]).reshape(3,-1)
         if self.VS_2D_mode:
             if self.VS_2D_initialized == False:
 
@@ -187,8 +215,9 @@ class RosRobot:
             _, TCP_to_current_TCP_transformation = self.kinematics.receive_transform('ur_base', self.current_TCP) #This takes too much time, TODO: find alternative
             
             TCP_velocity = np.matmul(TCP_to_current_TCP_transformation[:3,:3], velocity_vector)
+            TCP_angular_velocity = np.matmul(TCP_to_current_TCP_transformation[:3,:3], angular_velocity_vector)
 
-            self.cmd_velocity_vector = [TCP_velocity[0][0], TCP_velocity[1][0], TCP_velocity[2][0], 0., 0., 0.]
+            self.cmd_velocity_vector = [TCP_velocity[0][0], TCP_velocity[1][0], TCP_velocity[2][0], TCP_angular_velocity[0][0], TCP_angular_velocity[1][0], TCP_angular_velocity[2][0]]
 
             if (np.sum(np.abs(self.cmd_velocity_vector))==0 and not self.move_vel):
                     self.move_vel = True
@@ -666,8 +695,8 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    # robot = UrRtde("192.168.50.110")
-    robot = AbbRobot('192.168.125.1')
+    robot = UrRtde("192.168.50.110")
+    # robot = AbbRobot('192.168.125.1')
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )
