@@ -3,12 +3,14 @@ This script includes implementation for robot control
 functions for UR robots using the ur_rtde package
 """
 from math import degrees
+from socket import setdefaulttimeout
 from turtle import pos
 import abb
 import rospy
 from robot_base import Robot
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from multiprocessing import Process, Array
 
 #NOTE: ABB quaternion format: [w x y z]
 #Scipy quaternion format [x y z w]
@@ -20,11 +22,18 @@ class AbbRobot(Robot):
         self.robot_ip = robot_ip
         self.robot = abb.Robot(ip=self.robot_ip)
         self.is_active = False
+
+        # self.get_pose_process = Process(target=self.get_cartesian_pose, name="getting_pose")
+
         self.last_position = [0., 0., 0.]
         self.last_quat = [1., 0., 0., 0.]
 
         self.move_finish = True
         
+    # def get_cartesian_pose(self, in_position, in_quat):
+    #     [position, quat] = self.robot.get_cartesian()
+    #     in_position[:] = position
+    #     in_quat[:] = quat
         
     def move_TCP(self, pose_vec, vel, acc, slow=False):
         position = [pose_vec[i] * 1000 for i in range(3)] #convert from m to mm
@@ -53,9 +62,21 @@ class AbbRobot(Robot):
 
     def get_pose(self):
 
-        [position, quat] = self.robot.get_cartesian()
+        #Get the robot pose through a process with timeout to overcome communication freezing problem
+        # out_position = Array('d', [0.0, 0.0, 0.0])
+        # out_quat = Array('d', [1.0, 0.0, 0.0, 0.0])
+        # get_pose_process = Process(target=self.get_cartesian_pose, name="getting_pose", args=(out_position, out_quat))
+        # get_pose_process.start()
+        # get_pose_process.join(1)
+        # if get_pose_process.is_alive():
+        #     get_pose_process.terminate()
+        # position = out_position[:]
+        # quat = out_quat[:]
 
-        if len(position) == 0:
+        [position, quat] = self.robot.get_cartesian()
+        
+        if len(position) == 0 or np.linalg.norm(position) == 0:
+            #Catch some errors in communicating with the robot
             position = self.last_position
             quat = self.last_quat
         else:

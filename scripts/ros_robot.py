@@ -270,10 +270,9 @@ class RosRobot:
         command_attitude = R.from_dcm(desired_transformation[:3, :3])
         attitude_rot_vec = command_attitude.as_rotvec()
         pose_vec = [command_trans[0], command_trans[1], command_trans[2], attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]]
-        
         self.robot_controller.move_TCP(pose_vec, self.vel, self.acc, slow)
         
-        self.update_poses()
+        # self.update_poses()
 
         #TODO: check pose arrival
         return True
@@ -290,7 +289,7 @@ class RosRobot:
 
         self.robot_controller.move_TCP_compound(pose_vec_list, self.vel, self.acc, blend=0.1, slow=slow)
         
-        self.update_poses()
+        # self.update_poses()
 
         #TODO: check pose arrival
         return True
@@ -689,8 +688,8 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    robot = UrRtde("192.168.50.110")
-    # robot = AbbRobot('192.168.125.1')
+    # robot = UrRtde("192.168.50.110")
+    robot = AbbRobot('192.168.125.1')
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )

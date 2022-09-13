@@ -95,9 +95,15 @@ class Robot:
         Returns the current pose of the robot, in millimeters
         '''
         msg = "03 #"
-        data = self.send(msg).split()
-        r = [float(s) for s in data]
-        return [r[2:5], r[5:9]]
+        try:
+            self.sock.settimeout(1)
+            data = self.send(msg).split()
+            self.sock.settimeout(None)
+            r = [float(s) for s in data]
+            return [r[2:5], r[5:9]]
+        except:
+            log.debug('get_robotinfo result: %s', str(data))
+            return [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
 
     def get_joints(self):
         '''
