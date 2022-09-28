@@ -56,11 +56,22 @@ class AbbRobot(Robot):
         self.is_active = True
         self.move_finish = None
         self.move_finish = self.robot.set_cartesian([position, abb_quat])
+
+        while True:
+            self.get_pose(force_reading=True)
+            delta_pos = np.linalg.norm(np.subtract(self.last_position, position))/1000 + np.linalg.norm(np.subtract(self.last_quat, abb_quat))
+            if delta_pos < 0.0005:
+                break
+            rospy.sleep(0.01)
+
+        self.is_active = False
+
+        return True
     
     def speed_command(self, twist_vec, acc):
         raise NotImplementedError
 
-    def get_pose(self):
+    def get_pose(self, force_reading=False):
 
         #Get the robot pose through a process with timeout to overcome communication freezing problem
         # out_position = Array('d', [0.0, 0.0, 0.0])
@@ -73,16 +84,21 @@ class AbbRobot(Robot):
         # position = out_position[:]
         # quat = out_quat[:]
 
-        [position, quat] = self.robot.get_cartesian()
-        
-        if len(position) == 0 or np.linalg.norm(position) == 0:
-            #Catch some errors in communicating with the robot
+        #TODO, keep getting pose during movement
+
+        if not self.is_active or force_reading:
+            [position, quat] = self.robot.get_cartesian()
+            if len(position) == 0 or np.linalg.norm(position) == 0:
+                #Catch some errors in communicating with the robot
+                position = self.last_position
+                quat = self.last_quat
+            else:
+                self.last_position = position
+                self.last_quat = quat
+        else:
             position = self.last_position
             quat = self.last_quat
-        else:
-            self.last_position = position
-            self.last_quat = quat
-
+            
         position = [x / 1000 for x in position] #convert from mm to m
 
         #Rotate poses by -90 deg to be compatible with base frame of UR10

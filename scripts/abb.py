@@ -76,7 +76,7 @@ class Robot:
         Executes a move immediately from the current pose,
         to 'pose', with units of millimeters.
         '''
-        msg  = "01 " + self.format_pose(pose)   
+        msg  = "01 " + self.format_pose(pose) 
         return self.send(msg, wait_for_response=False)
 
     def set_joints(self, joints):
@@ -95,14 +95,14 @@ class Robot:
         Returns the current pose of the robot, in millimeters
         '''
         msg = "03 #"
-        try:
+        try: 
             self.sock.settimeout(1)
             data = self.send(msg).split()
             self.sock.settimeout(None)
             r = [float(s) for s in data]
             return [r[2:5], r[5:9]]
         except:
-            log.debug('get_robotinfo result: %s', str(data))
+            log.debug('could not receive pose from robot')
             return [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
 
     def get_joints(self):
