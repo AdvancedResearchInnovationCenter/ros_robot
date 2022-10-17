@@ -59,10 +59,13 @@ class AbbRobot(Robot):
 
         while True:
             self.get_pose(force_reading=True)
-            delta_pos = np.linalg.norm(np.subtract(self.last_position, position))/1000 + np.linalg.norm(np.subtract(self.last_quat, abb_quat))
-            if delta_pos < 0.0005:
+            delta_pos = np.linalg.norm(np.subtract(self.last_position, position))/1000
+            delta_ang = np.linalg.norm(np.subtract( np.abs(self.last_quat), np.abs(abb_quat)))
+            delta_pose = delta_pos + delta_ang
+            if (delta_pos < 0.0001) and (delta_ang < 0.001):
                 break
             rospy.sleep(0.01)
+        rospy.sleep(0.1)
 
         self.is_active = False
 
