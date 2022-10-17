@@ -10,7 +10,7 @@ from std_msgs.msg import Float64, Bool
 from std_srvs.srv import Empty
 import tf2_ros
 import datetime
-from ros_robot_pkg.srv import moveRobot, desiredTCP, pegHole
+from ros_robot_pkg.srv import moveRobot, desiredTCP, pegHole, setValue
 from scipy.spatial.transform import Rotation as R
 from kinematics import RobotKinematics
 import time
@@ -141,6 +141,8 @@ class RosRobot:
         self.insert_split_pin = rospy.Service('insert_split_pin', pegHole, self.split_pin_cb)
         self.visual_split_pin = rospy.Service('visual_split_pin', pegHole, self.visual_split_pin_cb)
         self.retract_split_pin = rospy.Service('retract_split_pin', pegHole, self.retract_split_pin_cb)
+        self.change_ref_vel = rospy.Service('change_ref_vel', setValue, self.change_ref_vel_cb)
+        self.change_ref_acc = rospy.Service('change_ref_acc', setValue, self.change_ref_acc_cb)
         
         self.rate = rospy.Rate(50)
         self.rate_c = rospy.Rate(50)
@@ -167,6 +169,16 @@ class RosRobot:
 
     def setup_tf(self):
         self.kinematics.send_multiple_transform('TCP', ['pressure_ft', 'davis'], transformation_matrices=[TCP_to_pressure_foot, TCP_to_cam], mode='static')
+
+    def change_ref_vel_cb(self, req):
+        self.vel = req.value
+
+        return True
+    
+    def change_ref_acc_cb(self, req):
+        self.acc = req.value
+
+        return True
 
     def moveRobot_cb(self, req, slow=False):
         #Callback to move robot to specific pose
@@ -688,8 +700,8 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    # robot = UrRtde("192.168.50.110")
-    robot = AbbRobot('192.168.125.1')
+    robot = UrRtde("192.168.50.110")
+    # robot = AbbRobot('192.168.125.1')
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )

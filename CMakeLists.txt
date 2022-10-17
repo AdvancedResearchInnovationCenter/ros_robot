@@ -62,6 +62,7 @@ find_package(catkin REQUIRED COMPONENTS
    moveRobot.srv
    desiredTCP.srv
    pegHole.srv
+   setValue.srv
  )
 
 
