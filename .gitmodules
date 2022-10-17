@@ -1,0 +1,3 @@
+[submodule "scripts/kukavarproxy-msg-format"]
+	path = scripts/kukavarproxy-msg-format
+	url = https://github.com/abdullaayyad96/kukavarproxy-msg-format.git

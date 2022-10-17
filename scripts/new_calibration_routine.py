@@ -95,7 +95,7 @@ class robot_camera_calibration:
         # self.images_directory = 'tactile_calibration/'
         self.images_directory = '/home/abdulla/codes/event_vision_ws/tactile_calibration/'
 
-        self.dump_file_name = '/home/abdulla/codes/event_vision_ws/tactile_cam_data' + str(date.today()) + '.pickle'
+        self.dump_file_name = '/home/abdulla/codes/event_vision_ws/tactile_calibration' + str(date.today()) + '.pickle'
         # self.dump_file_name = 'tactile_calibration_data' + str(date.today()) + '.pickle'
         # self.dump_file_name = 'debur_cam_calibration_data' + str(date.today()) + '.pickle'
 

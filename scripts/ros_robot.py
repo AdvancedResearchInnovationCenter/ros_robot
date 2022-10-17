@@ -18,6 +18,7 @@ import copy
 from ur_rtde import UrRtde
 import thread
 from abb_ros import AbbRobot
+from kuka_ros import KukaRobot
 import sys
 
 
@@ -689,7 +690,8 @@ class RosRobot:
     
 if __name__ == '__main__':
     # robot = UrRtde("192.168.50.110")
-    robot = AbbRobot('192.168.125.1')
+    # robot = AbbRobot('192.168.125.1')
+    robot = KukaRobot('10.10.105.200')
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )
