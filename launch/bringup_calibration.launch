@@ -4,12 +4,12 @@
 	<!---=================================================================================================================================================================-->
 	<!-- load tool model -->
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/inspection_debur.urdf.xacro'" /> -->
-	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/debur_with_full_tactile.urdf.xacro'" />
+	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/kuka_inspection.urdf.xacro'" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
 	<!---=================================================================================================================================================================-->
 	<!-- Robot Calibration Node -->
-    <node pkg="ros_robot_pkg" type="new_calibration_routine.py" name="new_calibration_routine"  output="screen">
-    </node>
+    <!-- <node pkg="ros_robot_pkg" type="new_calibration_routine.py" name="new_calibration_routine"  output="screen"> -->
+    <!-- </node> -->
 
 </launch>

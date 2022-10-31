@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import numpy as np
-import urx
+# import urx
 import cv2
 from cv2 import aruco
 import sys
@@ -18,14 +18,14 @@ from multiprocessing import Process
 import thread
 from ur_rtde import UrRtde
 from abb_ros import AbbRobot
+from kuka_ros import KukaRobot
 import random
 import copy
 
 checkerboard_to_center = np.array([0.135, 0.135, 0]).reshape(3, -1) #KU big one
 # checkerboard_to_center = np.array([0.025, 0.02, 0]).reshape(3, -1) #KU small one
 
-
-base_to_marker = np.array([[-1, 0, 0, -0.00], [0, 1, 0, -0.63], [0,0, -1, 0.], [0,0,0,1]])#KU UR config
+base_to_marker = np.array([[-1, 0, 0, 1.613], [0, 1, 0, -1.68], [0,0, -1, 0.84], [0,0,0,1]])#KU UR config
 # base_to_marker = np.array([[-1, 0, 0, -0.095], [0, 1, 0, -0.925], [0,0, -1, 0.2], [0,0,0,1]])#KU ABB config
 
 
@@ -34,13 +34,15 @@ class robot_camera_calibration:
     def __init__(self, robot_ip, chess_size, calibration_file, mode='auto'):
         time.sleep(0.2)
 
-        self.ur_robot = UrRtde("192.168.50.110")
-        self.robot = RosRobot(self.ur_robot)
+        # self.ur_robot = UrRtde("192.168.50.110")
+        # self.robot = RosRobot(self.ur_robot)
         # self.abb_robot = AbbRobot('192.168.125.1')
         # self.robot = RosRobot(self.abb_robot)
+        self.kuka_robot = KukaRobot('10.10.105.200')
+        self.robot = RosRobot(self.kuka_robot)
         
         # self.ros_image_topic = "/debur_cam/image_raw"
-        self.ros_image_topic = "/dvs/image_raw"
+        self.ros_image_topic = "/camera/image_raw"
         # self.ros_image_topic = "/camera/color/image_raw"
         self.cv_bridge = CvBridge()
 
@@ -57,9 +59,9 @@ class robot_camera_calibration:
         self.aruco_size = 0.06
         self.aruco_params = aruco.DetectorParameters_create()
         self.aruco_params.cornerRefinementMethod = aruco.CORNER_REFINE_SUBPIX
-        self.aruco_params.cornerRefinementWinSize = 5#5
-        self.aruco_params.cornerRefinementMinAccuracy = 0.1
-        self.aruco_params.cornerRefinementMaxIterations = 10
+        self.aruco_params.cornerRefinementWinSize = 7#5
+        self.aruco_params.cornerRefinementMinAccuracy = 0.001
+        self.aruco_params.cornerRefinementMaxIterations = 100
 
         #Charuco properties
         self.charuco_dict = aruco.Dictionary_get(aruco.DICT_4X4_1000)
@@ -93,11 +95,13 @@ class robot_camera_calibration:
         self.image_counter = 1
         # self.images_directory = 'new_debur_cam_calibration/'
         # self.images_directory = 'tactile_calibration/'
-        self.images_directory = '/home/abdulla/codes/event_vision_ws/tactile_calibration/'
+        self.images_directory = 'kuka_ids_calibration/'
+        # self.images_directory = '/home/abdulla/codes/event_vision_ws/tactile_calibration/'
 
-        self.dump_file_name = '/home/abdulla/codes/event_vision_ws/tactile_calibration' + str(date.today()) + '.pickle'
+        # self.dump_file_name = '/home/abdulla/codes/event_vision_ws/tactile_calibration' + str(date.today()) + '.pickle'
         # self.dump_file_name = 'tactile_calibration_data' + str(date.today()) + '.pickle'
         # self.dump_file_name = 'debur_cam_calibration_data' + str(date.today()) + '.pickle'
+        self.dump_file_name = 'kuka_ids_calibration_data' + str(date.today()) + '.pickle'
 
         self.mtx = []
         self.dist = []
@@ -106,7 +110,7 @@ class robot_camera_calibration:
         self.max_angle = 0.4#0.4
         self.N_cycle = 5#5
         self.N_pose_per_cycle = 20 #20
-        self.radius = [0.2, 0.25]
+        self.radius = [0.22, 0.27]
 
 
         #Calibration specifications for small KU aruco
@@ -147,11 +151,11 @@ class robot_camera_calibration:
 
                 rx = theta * math.cos(phi)
                 ry = theta * math.sin(phi)
-                rz = 0.5 * (random.random()-0.5)
+                rz = 0.05 * (random.random()-0.5)
 
                 transformation_matrix = np.eye(4)
                 transformation_matrix[:3,:3] = R.from_rotvec([rx, ry, rz]).as_dcm().transpose()
-                transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.1 * (random.random() - 0.5), 0.1 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big KU ARUCO
+                transformation_matrix[:3, 3] = np.matmul(R.from_rotvec([-ry, -rx, rz]).as_dcm().transpose(), np.array([0.02 * (random.random() - 0.5), 0.02 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big KU ARUCO
                 # transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.02 * (random.random() - 0.5), 0.02 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big small ARUCO
                 self.calibration_poses.append(transformation_matrix)
 
@@ -198,6 +202,8 @@ class robot_camera_calibration:
             image=input_image,
             board=self.CHARUCO_BOARD) 
 
+        print(response)
+        print(np.shape(chararuco_ids))
         while response < 4:
             raw_input('Checkerboard not found, manually update ur pose and try again')
             color_img, input_image = self.getRosImage()
@@ -213,7 +219,6 @@ class robot_camera_calibration:
                 image=input_image,
                 board=self.CHARUCO_BOARD)
             
-        print(response)
         
         # rvec = np.empty(shape=(1,))
         # tvec = np.empty(shape=(1,))
@@ -385,7 +390,8 @@ class robot_camera_calibration:
             # input_img = cv2.GaussianBlur(input_img, (11, 11), 2)
             # cv2.imwrite("/home/abdulla/codes/event_vision_ws/test.jpg", input_img)
 
-            # input_img = cv2.GaussianBlur(input_img, (21, 21), 5)
+            input_img = cv2.GaussianBlur(input_img, (21, 21), 5)
+            cv2.imwrite("test.jpg", input_img)
             input_img = cv2.resize(input_img, None, fx=self.scale_factor, fy=self.scale_factor)
             self.getChArucoPose(input_img) 
             original_img, input_img = self.getRosImage() 
