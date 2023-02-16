@@ -10,7 +10,7 @@ from std_msgs.msg import Float64, Bool
 from std_srvs.srv import Empty
 import tf2_ros
 import datetime
-from ros_robot_pkg.srv import moveRobot, desiredTCP, pegHole, setValue
+from ros_robot_pkg.srv import moveRobot, desiredTCP, pegHole, setValue, moveRobotRelative
 from scipy.spatial.transform import Rotation as R
 from kinematics import RobotKinematics
 import time
@@ -19,7 +19,6 @@ from ur_rtde import UrRtde
 import thread
 from abb_ros import AbbRobot
 import sys
-
 
 #Deburring end effector
 # TCP_to_pressure_foot = np.array([   [   -0.7140,         0,   -0.7001,   -0.1042],
@@ -95,7 +94,7 @@ class RosRobot:
     This is a class for ROS interface with robot controllers
     """
     def __init__(self, robot_controller):
-        self.vel = 0.15
+        self.vel = 0.5
         self.acc = 0.5
         self.stop_acc = 0.3
 
@@ -137,6 +136,7 @@ class RosRobot:
         self.set_tcp_service = rospy.Service("set_TCP", desiredTCP, self.set_TCP_cb)
         self.move_service = rospy.Service('move_ur', moveRobot, self.moveRobot_cb)
         self.adjust_service = rospy.Service('move_TCP', moveRobot, self.moveTCP_cb)
+        self.relative_move_service = rospy.Service('move_ur_relative', moveRobotRelative, self.moveRobotRelative_cb)
         self.move_service = rospy.Service('fire_drill', moveRobot, self.fire_drill_cb)
         self.insert_split_pin = rospy.Service('insert_split_pin', pegHole, self.split_pin_cb)
         self.visual_split_pin = rospy.Service('visual_split_pin', pegHole, self.visual_split_pin_cb)
@@ -187,6 +187,13 @@ class RosRobot:
         success = self.move_to_pose(req.target_pose, slow)
         return success
 
+    def moveRobotRelative_cb(self, req, slow=False):
+        #Callback to move robot to specific pose
+        self.set_TCP(req.frame)
+
+        success = self.move_to_pose(req.target_pose, slow, relative_frame=req.relative_frame)
+        return success
+
 
     def moveTCP_cb(self, req):
         #Callback to adjust TCP by specifc distance
@@ -235,12 +242,17 @@ class RosRobot:
         return self.move_to_pose(pose_msg)
 
 
-    def move_to_pose(self, pose_msg, slow=False):
-        transformation_matrix = self.kinematics.pose_to_transformation_matrix(pose_msg)
+    def move_to_pose(self, pose_msg, slow=False, relative_frame='ur_base'):
+        
+        _, base_to_relative = self.kinematics.receive_transform('ur_base', relative_frame)
+
+        relative_to_target = self.kinematics.pose_to_transformation_matrix(pose_msg)
+
+        base_to_target = self.kinematics.add_transformations(base_to_relative, relative_to_target)
 
         _, desired_to_org_TCP = self.kinematics.receive_transform(self.current_TCP, 'TCP')
 
-        full_transformation_matrix = self.kinematics.add_transformations(transformation_matrix, desired_to_org_TCP)
+        full_transformation_matrix = self.kinematics.add_transformations(base_to_target, desired_to_org_TCP)
 
         return self.move_TCP(full_transformation_matrix, slow)
 
@@ -700,8 +712,8 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    robot = UrRtde("192.168.50.110")
-    # robot = AbbRobot('192.168.125.1')
+    # robot = UrRtde("192.168.50.110")
+    robot = AbbRobot('192.168.125.1')
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )
