@@ -13,7 +13,7 @@ import socket
 import json 
 import time
 import inspect
-from _threading import _thread
+import _thread
 from collections import deque
 import logging
 

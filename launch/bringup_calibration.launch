@@ -5,12 +5,15 @@
 	<!-- load tool model -->
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/inspection_debur.urdf.xacro'" /> -->
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" /> -->
-	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/debur_with_full_tactile.urdf.xacro'" />
-    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/debur_with_full_tactile.urdf.xacro'" /> -->
+	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" />
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 
 	<!---=================================================================================================================================================================-->
 	<!-- Robot Calibration Node -->
-    <node pkg="ros_robot_pkg" type="new_calibration_routine.py" name="new_calibration_routine"  output="screen">
-    </node>
+    <!-- <node pkg="ros_robot_pkg" type="new_calibration_routine.py" name="new_calibration_routine"  output="screen"> -->
+    <node pkg="ros_robot_pkg" type="laser_calibration.py" name="laser_calibration"  output="screen">
+    
+	</node>
 
 </launch>

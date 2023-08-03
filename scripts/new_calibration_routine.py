@@ -50,6 +50,7 @@ class robot_camera_calibration:
         self.checkerboard_dim = chess_size
         self.checkerboard_size = 3
         self.object_points = np.zeros((self.checkerboard_dim[0]*self.checkerboard_dim[1],3), np.float32)
+        # no. 3 is it should be replaced by the checkerboard size 
         self.object_points[:,:2] = 3*np.mgrid[0:self.checkerboard_dim[0], 0:self.checkerboard_dim[1]].T.reshape(-1,2)
 
         #Aruco properties
@@ -150,7 +151,7 @@ class robot_camera_calibration:
                 rz = 0.5 * (random.random()-0.5)
 
                 transformation_matrix = np.eye(4)
-                transformation_matrix[:3,:3] = R.from_rotvec([rx, ry, rz]).asmatrix().transpose()
+                transformation_matrix[:3,:3] = R.from_rotvec([rx, ry, rz]).as_matrix().transpose()
                 transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.1 * (random.random() - 0.5), 0.1 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big KU ARUCO
                 # transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.02 * (random.random() - 0.5), 0.02 * (random.random() - 0.5), -self.radius[0] - random.random() * (self.radius[1] - self.radius[0])])).reshape(3) #for big small ARUCO
                 self.calibration_poses.append(transformation_matrix)
@@ -178,7 +179,7 @@ class robot_camera_calibration:
 
         if not np.any(rvecs==None):
             rotation = R.from_rotvec(rvecs[0])
-            rotmax = rotation.asmatrix()
+            rotmax = rotation.as_matrix()
 
             return np.array(tvecs[0]), rotmax
             
@@ -222,7 +223,7 @@ class robot_camera_calibration:
         # aruco_correctionmatrix = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
 
         # rotation = R.from_rotvec(np.array(rvecs).reshape(3))
-        # rotmax = np.matmul(aruco_correctionmatrix, rotation.asmatrix())
+        # rotmax = np.matmul(aruco_correctionmatrix, rotation.as_matrix())
 
         
         # translation = np.array(tvecs).reshape(3, -1) + np.matmul(rotmax, checkerboard_to_center)
@@ -249,7 +250,7 @@ class robot_camera_calibration:
 
             if not np.any(rvecs==None):
                 rotation = R.from_rotvec(np.array(rvecs).reshape(3))
-                rotmax = rotation.asmatrix()
+                rotmax = rotation.as_matrix()
 
                 translation = np.array(tvecs/100).reshape(3, -1) + np.matmul(rotmax, checkerboard_to_center)
                 return translation, rotmax
@@ -270,7 +271,7 @@ class robot_camera_calibration:
 
         tvec = [robot_pose[0], robot_pose[1], robot_pose[2]]
 
-        return np.array(tvec), R.from_rotvec(robot_pose[3:6]).asmatrix()
+        return np.array(tvec), R.from_rotvec(robot_pose[3:6]).as_matrix()
 
     def dumpData(self, image_name_list, ee_pose_list, aruco_pose_list):
 
@@ -376,7 +377,7 @@ class robot_camera_calibration:
             self.robot.move_to_pose(pose_msg)
             rospy.sleep(3)
 
-
+    
             original_img, input_img = self.getRosImage() 
 
             # while not self.check_checkerboard(input_img):
@@ -427,9 +428,9 @@ if __name__ == '__main__':
     # cv2.imwrite('charuco.jpg', img)
 
     robot = robot_camera_calibration("192.168.50.110", (8,5), 'calibration_2021-01-14.pickle', 'semi_auto')
-    _thread.start_new__thread( robot.robot.run_node, () )
-    # _thread.start_new__thread( robot.performAutoCalibRoutine, () )
-    _thread.start_new__thread( robot.performSemiAutoCalibRoutine, () )
+    _thread.start_new_thread( robot.robot.run_node, () )
+    # _thread.start_new_thread( robot.performAutoCalibRoutine, () )
+    _thread.start_new_thread( robot.performSemiAutoCalibRoutine, () )
 
     
     while not rospy.is_shutdown():

@@ -40,14 +40,14 @@ class AbbRobot(Robot):
         rot_vec = pose_vec[3:]
 
         #Rotate poses by 90 deg to be compatible with base frame of UR10
-        abb_R_ur = R.from_euler('z', 90, degrees=True).asmatrix()
+        abb_R_ur = R.from_euler('z', 90, degrees=True).as_matrix()
 
         position = np.matmul(abb_R_ur, np.array(position)).tolist()
-        ur_R_tcp = R.from_rotvec(rot_vec).asmatrix()
+        ur_R_tcp = R.from_rotvec(rot_vec).as_matrix()
         abb_R_tcp = np.matmul(abb_R_ur, ur_R_tcp)
 
 
-        quat = R.frommatrix(abb_R_tcp).as_quat().tolist()
+        quat = R.from_matrix(abb_R_tcp).as_quat().tolist()
         abb_quat = [quat[3]] + quat[:3]
         if slow:
             self.robot.set_speed([vel*1000/5/2, 50/5, 50, 50])
@@ -105,12 +105,12 @@ class AbbRobot(Robot):
         position = [x / 1000 for x in position] #convert from mm to m
 
         #Rotate poses by -90 deg to be compatible with base frame of UR10
-        ur_R_abb = R.from_euler('z', -90, degrees=True).asmatrix()
+        ur_R_abb = R.from_euler('z', -90, degrees=True).as_matrix()
         
-        rot_mat = R.from_quat(quat[1:] + [quat[0]]).asmatrix()
+        rot_mat = R.from_quat(quat[1:] + [quat[0]]).as_matrix()
 
         updated_rot_mat = np.matmul(ur_R_abb, rot_mat)
-        rotvec = R.frommatrix(updated_rot_mat).as_rotvec().tolist()
+        rotvec = R.from_matrix(updated_rot_mat).as_rotvec().tolist()
 
         #Modify the position
         position = np.matmul(ur_R_abb, np.array(position)).tolist()

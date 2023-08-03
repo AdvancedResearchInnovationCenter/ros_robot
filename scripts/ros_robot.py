@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 This script includes a class to methods for the interface between ROS and various robot control packages 
 """
@@ -94,8 +94,8 @@ class RosRobot:
     This is a class for ROS interface with robot controllers
     """
     def __init__(self, robot_controller):
-        self.vel = 0.5
-        self.acc = 0.5
+        self.vel = 0.1
+        self.acc = 0.1
         self.stop_acc = 0.3
 
         self.cmd_velocity_vector = []
@@ -291,7 +291,7 @@ class RosRobot:
 
     def move_TCP(self, desired_transformation, slow=False):
         command_trans = desired_transformation[:3, 3]
-        command_attitude = R.frommatrix(desired_transformation[:3, :3])
+        command_attitude = R.from_matrix(desired_transformation[:3, :3])
         attitude_rot_vec = command_attitude.as_rotvec()
         pose_vec = [command_trans[0], command_trans[1], command_trans[2], attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]]
         self.robot_controller.move_TCP(pose_vec, self.vel, self.acc, slow)
@@ -305,7 +305,7 @@ class RosRobot:
         pose_vec_list = []
         for desired_transformation in desired_transformation_list:
             command_trans = desired_transformation[:3, 3]
-            command_attitude = R.frommatrix(desired_transformation[:3, :3])
+            command_attitude = R.from_matrix(desired_transformation[:3, :3])
             attitude_rot_vec = command_attitude.as_rotvec()
             pose_vec = [command_trans[0], command_trans[1], command_trans[2], attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]]
 
@@ -323,7 +323,7 @@ class RosRobot:
         # rospy.loginfo("angle command received:", target_angle_msg)
 
         current_TCP_to_desired_TCP = np.eye(4)
-        current_TCP_to_desired_TCP[:3, :3] = R.from_rotvec([0, 0, target_angle_msg.data]).asmatrix()
+        current_TCP_to_desired_TCP[:3, :3] = R.from_rotvec([0, 0, target_angle_msg.data]).as_matrix()
 
         self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
 
@@ -331,7 +331,7 @@ class RosRobot:
     def angle_callback_x(self, target_angle_msg):
         #rotate end effector around x axis of TCP
         current_TCP_to_desired_TCP = np.eye(4)
-        current_TCP_to_desired_TCP[:3, :3] = R.from_rotvec([target_angle_msg.data, 0, 0,]).asmatrix()
+        current_TCP_to_desired_TCP[:3, :3] = R.from_rotvec([target_angle_msg.data, 0, 0,]).as_matrix()
 
         self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
 
@@ -369,7 +369,7 @@ class RosRobot:
         self.pose = self.robot_controller.get_pose()
 
         TCP_transformation_matrix = np.eye(4)
-        TCP_transformation_matrix[:3, :3] = R.from_rotvec(self.pose[3:]).asmatrix()
+        TCP_transformation_matrix[:3, :3] = R.from_rotvec(self.pose[3:]).as_matrix()
         TCP_transformation_matrix[0, 3] = self.pose[0]
         TCP_transformation_matrix[1, 3] = self.pose[1]
         TCP_transformation_matrix[2, 3] = self.pose[2]
@@ -487,7 +487,7 @@ class RosRobot:
         adjust_pose_msg.position.y = 0.00015
 
         start_pose = copy.deepcopy(self.pressure_ft_pose.pose)
-        rot_mat = R.from_quat([start_pose.orientation.x, start_pose.orientation.y, start_pose.orientation.z, start_pose.orientation.w]).asmatrix()
+        rot_mat = R.from_quat([start_pose.orientation.x, start_pose.orientation.y, start_pose.orientation.z, start_pose.orientation.w]).as_matrix()
         command_pose = Pose()
         command_pose.orientation.w = start_pose.orientation.w
         command_pose.orientation.x = start_pose.orientation.x
@@ -581,7 +581,7 @@ class RosRobot:
             pass
         else:
             start_pose = copy.deepcopy(self.pressure_ft_pose.pose)
-            rot_mat = R.from_quat([start_pose.orientation.x, start_pose.orientation.y, start_pose.orientation.z, start_pose.orientation.w]).asmatrix()
+            rot_mat = R.from_quat([start_pose.orientation.x, start_pose.orientation.y, start_pose.orientation.z, start_pose.orientation.w]).as_matrix()
             command_pose = Pose()
             command_pose.orientation.w = start_pose.orientation.w
             command_pose.orientation.x = start_pose.orientation.x
@@ -712,11 +712,11 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    # robot = UrRtde("192.168.50.110")
-    robot = AbbRobot('192.168.125.1')
+    robot = UrRtde("192.168.50.110")
+    # robot = AbbRobot('192.168.125.1')
     ros_robot = RosRobot(robot)
-    _thread.start_new__thread( ros_robot.run_node, () )
-    _thread.start_new__thread( ros_robot.run_controller, () )
+    _thread.start_new_thread( ros_robot.run_node, () )
+    _thread.start_new_thread( ros_robot.run_controller, () )
 
     while not rospy.is_shutdown():
         pass
