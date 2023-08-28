@@ -13,7 +13,8 @@ import socket
 import json 
 import time
 import inspect
-from threading import Thread
+# from threading import Thread 
+import _thread
 from collections import deque
 import logging
 
@@ -311,8 +312,17 @@ class Robot:
         if wait_for_response, we wait for the response and return it
         '''
         caller = inspect.stack()[1][3]
-        log.debug('%-14s sending: %s', caller, message)
-        self.sock.send(message)
+        """
+        Solved:error TypeError: a bytes-like object is required, not 'str' 
+        Replace this 
+        # log.debug('%-14s sending: %s', caller, message)
+        # self.sock.send(message)
+        with the following 
+        """
+        byte_msg = message.encode('utf-8')
+        log.debug('%-14s sending: %s', caller, byte_msg)
+        self.sock.send(byte_msg)
+                
         time.sleep(self.delay)
         if not wait_for_response: return
         data = self.sock.recv(4096)
