@@ -18,6 +18,7 @@ import copy
 from ur_rtde import UrRtde
 import _thread
 from abb_ros import AbbRobot
+from mitsubishi_ros import MitsubishiRobot
 import sys
 
 #Deburring end effector
@@ -712,8 +713,9 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    robot = UrRtde("192.168.50.110")
+    # robot = UrRtde("192.168.50.110")
     # robot = AbbRobot('192.168.125.1')
+    robot = MitsubishiRobot('192.168.0.20')    
     ros_robot = RosRobot(robot)
     _thread.start_new_thread( ros_robot.run_node, () )
     _thread.start_new_thread( ros_robot.run_controller, () )
