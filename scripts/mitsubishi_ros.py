@@ -43,14 +43,14 @@ class MitsubishiRobot(Robot):
         mitsubishi_R_tcp = np.matmul(mitsubishi_R_ur, ur_R_tcp)
 
 
-        rpy = R.from_dcm(mitsubishi_R_tcp).as_euler('zyx', degrees=True).tolist()
+        rpy = R.from_dcm(mitsubishi_R_tcp).as_euler('xyz', degrees=True).tolist()
 
         if slow:
             self.robot.set_speed(vel/5)
         else:
             self.robot.set_speed(vel)
 
-        pose_values = [position[0], position[1], position[2], rpy[2], rpy[1], rpy[0]]
+        pose_values = [position[0], position[1], position[2], rpy[0], rpy[1], rpy[2]]
         print(pose_values)
         pose_string = self.construct_pose_msg(pose_values)
 
@@ -87,7 +87,7 @@ class MitsubishiRobot(Robot):
         if self.robot_in_motion:
             self.robot_in_motion = self.check_motion_status()
 
-        rot_mat = R.from_euler('zyx', [rot_rpy[2], rot_rpy[1], rot_rpy[0]], degrees=True).as_dcm()
+        rot_mat = R.from_euler('xyz', [rot_rpy[0], rot_rpy[1], rot_rpy[2]], degrees=True).as_dcm()
         #Rotate poses by -90 deg to be compatible with base frame of UR10
         ur_R_mitsubishi = R.from_euler('z', -90, degrees=True).as_dcm()
 
