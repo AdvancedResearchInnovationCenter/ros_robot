@@ -18,6 +18,7 @@ import copy
 from ur_rtde import UrRtde
 import thread
 from abb_ros import AbbRobot
+from mitsubishi_ros import MitsubishiRobot
 import sys
 
 #Deburring end effector
@@ -94,7 +95,7 @@ class RosRobot:
     This is a class for ROS interface with robot controllers
     """
     def __init__(self, robot_controller):
-        self.vel = 0.5
+        self.vel = 0.1
         self.acc = 0.5
         self.stop_acc = 0.3
 
@@ -713,7 +714,8 @@ class RosRobot:
     
 if __name__ == '__main__':
     # robot = UrRtde("192.168.50.110")
-    robot = AbbRobot('192.168.125.1')
+    # robot = AbbRobot('192.168.125.1')
+    robot = MitsubishiRobot('192.168.0.20')    
     ros_robot = RosRobot(robot)
     thread.start_new_thread( ros_robot.run_node, () )
     thread.start_new_thread( ros_robot.run_controller, () )
