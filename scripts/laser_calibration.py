@@ -18,8 +18,9 @@ from pathlib import Path
 import rospy
 from alive_progress import alive_bar 
 import rospkg
+import random 
 
-base_to_bing_bong = np.array([[-1, 0, 0, -0.042], [0,1, 0, -0.78], [0,0, -1, 0.09], [0,0,0,1]]) #The estimated pose for the bing bong ball 
+base_to_ping_pong = np.array([[1, 0, 0, -0.042], [0,1, 0, -0.78], [0,0, -1, 0.09], [0,0,0,1]]) #The estimated pose for the bing bong ball 
 
 class robot_laser_calibration:
     '''initiliaze '''
@@ -31,7 +32,7 @@ class robot_laser_calibration:
         self.robot = RosRobot(self.ur_robot)
         # laser topic for the point cloud 
         # self.radius = [0.2, 0.25]
-        self.radius = [0.2, 0.025]
+        self.radius = [0.25, 0.025]
         self.calibration_poses = [] #laser poses relative to bing bong
         self.N_cycle = 5#5
         self.max_angle = 0.3#0.4
@@ -87,7 +88,10 @@ class robot_laser_calibration:
 
                 rx = theta * math.cos(phi)
                 ry = theta * math.sin(phi)
-                rz = 0.0
+                # rz = 0.0
+                # rz = 0.2 * (2 * random.random() - 1)
+                rz = 0.12 * (2 * random.random() - 1)
+
                 transformation_matrix = np.eye(4)
                 transformation_matrix[:3,:3] = R.from_rotvec([rx, ry, rz]).as_matrix().transpose()
                 transformation_matrix[:3, 3] = np.matmul(transformation_matrix[:3,:3], np.array([0.0, 0.0, -self.radius[0]])).reshape(3)
@@ -96,7 +100,7 @@ class robot_laser_calibration:
     def perfomLaserCalibration(self):
         rospy.sleep(1)
 
-        self.robot.kinematics.set_transform('ur_base', 'bing_bong', base_to_bing_bong, mode='static')
+        # self.robot.kinematics.set_transform('ur_base', 'ping_pong', base_to_ping_pong, mode='static')
         input("Check rviz, then proceed ...")
         # current_working_directory = Path.cwd()
         # print(current_working_directory)
@@ -106,7 +110,7 @@ class robot_laser_calibration:
         with alive_bar((self.N_cycle * self.N_pose_per_cycle),force_tty=True) as bar:
             for target_pose in self.calibration_poses:
                 # counter = counter +1 
-                self.robot.kinematics.set_transform('bing_bong', 'scancontrol_intermediate_desired', target_pose, mode='static')
+                self.robot.kinematics.set_transform('ping_pong', 'scancontrol_intermediate_desired', target_pose, mode='static')
                 rospy.sleep(0.2)
                 _, base_to_target = self.robot.kinematics.receive_transform('ur_base', 'scancontrol_intermediate_desired')
                 
@@ -141,7 +145,7 @@ class robot_laser_calibration:
    
 
 if __name__ == '__main__':
-    robot = robot_laser_calibration("192.168.50.110")
+    robot = robot_laser_calibration("192.168.50.110")   
     _thread.start_new_thread( robot.robot.run_node, () )
     _thread.start_new_thread(robot.perfomLaserCalibration, () )
     # robot_laser_calibration().perfomLaserCalibration()

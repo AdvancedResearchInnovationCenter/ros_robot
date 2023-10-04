@@ -30,12 +30,12 @@ class MITSUBISHI(object):
 
     def execute(self, command):
         exec_command = 'EXEC' + command
-        print("exec_command: ", exec_command)
         self.write(exec_command)
 
     def write(self, command):
         message = self.robot + ";" + self.socket + ";" + command
-        client.sendall(bytes(message))
+        client.sendall(bytes(message, encoding='utf-8'))
+        client.settimeout(1.0)
         received_msg = str(client.recv(1024))
         return received_msg
 
@@ -46,14 +46,13 @@ class MITSUBISHI(object):
         #speed is decribed as a ration from 0 to 1
         speed_percentage = int(speed * 100) # convert to percentage
         command = "JOVRD " + str(speed_percentage)
-        print("speed: ", command)
         self.execute(command)
 
     def move_robot(self, pose): #pose in (x, y, z, r, p, y) format
         variable_command = "P1 = " + pose
-        print("pose: ", variable_command)
+        
         self.execute(variable_command)
 
         move_command = "MOV P1"
-        print("move_command: ", move_command)
+        
         self.execute(move_command)

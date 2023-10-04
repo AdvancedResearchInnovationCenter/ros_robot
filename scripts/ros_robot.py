@@ -95,9 +95,13 @@ class RosRobot:
     This is a class for ROS interface with robot controllers
     """
     def __init__(self, robot_controller):
-        self.vel = 0.1
-        self.acc = 0.1
-        self.stop_acc = 0.3
+        # self.vel = 0.1
+        # self.acc = 0.1
+        # self.stop_acc = 0.3
+        
+        self.vel = 0.15
+        self.acc = 0.15
+        self.stop_acc = 0.1
 
         self.cmd_velocity_vector = []
         self.move_vel = False
@@ -343,7 +347,6 @@ class RosRobot:
         time.sleep(1)
 
         while not rospy.is_shutdown():
-
             self.update_poses()
             self.pose_publisher.publish(self.robot_pose)
             self.cam_pose_publisher.publish(self.camera_pose)
@@ -353,6 +356,7 @@ class RosRobot:
             self.arm_force_publisher.publish(self.ur_force)
             
             self.rate.sleep()
+
         
         self.cleanup()
 
@@ -713,9 +717,9 @@ class RosRobot:
 
     
 if __name__ == '__main__':
-    # robot = UrRtde("192.168.50.110")
+    robot = UrRtde("192.168.50.110")
     # robot = AbbRobot('192.168.125.1')
-    robot = MitsubishiRobot('192.168.0.20')    
+    # robot = MitsubishiRobot('192.168.0.20')    
     ros_robot = RosRobot(robot)
     _thread.start_new_thread( ros_robot.run_node, () )
     _thread.start_new_thread( ros_robot.run_controller, () )

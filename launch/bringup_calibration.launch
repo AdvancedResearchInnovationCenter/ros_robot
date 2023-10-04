@@ -6,13 +6,17 @@
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/inspection_debur.urdf.xacro'" /> -->
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" /> -->
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/debur_with_full_tactile.urdf.xacro'" /> -->
-	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" />
+	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/ur10_laser_setup.urdf.xacro'" />
 	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+	<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="0.15 -0.9 0.4 0.0117 -0.699 0.7145 0.0192 ur_base blade" /> -->
+	<node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="--0.06510484 -0.8120443 0.13574791 3.14 0 3.14 ur_base ping_pong" />
+	
 
 	<!---=================================================================================================================================================================-->
 	<!-- Robot Calibration Node -->
     <!-- <node pkg="ros_robot_pkg" type="new_calibration_routine.py" name="new_calibration_routine"  output="screen"> -->
     <node pkg="ros_robot_pkg" type="laser_calibration.py" name="laser_calibration"  output="screen">
+    <!-- <node pkg="ros_robot_pkg" type="gripper.py" name="gripper"  output="screen"> -->
     
 	</node>
 

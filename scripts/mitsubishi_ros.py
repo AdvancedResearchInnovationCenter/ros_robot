@@ -36,28 +36,28 @@ class MitsubishiRobot(Robot):
         rot_vec = pose_vec[3:]
 
         #Rotate poses by 90 deg to be compatible with base frame of UR10
-        mitsubishi_R_ur = R.from_euler('z', 90, degrees=True).as_dcm()
+        mitsubishi_R_ur = R.from_euler('z', 90, degrees=True).as_matrix()
 
         position = np.matmul(mitsubishi_R_ur, np.array(position)).tolist()
-        ur_R_tcp = R.from_rotvec(rot_vec).as_dcm()
+        ur_R_tcp = R.from_rotvec(rot_vec).as_matrix()
         mitsubishi_R_tcp = np.matmul(mitsubishi_R_ur, ur_R_tcp)
 
 
-        rpy = R.from_dcm(mitsubishi_R_tcp).as_euler('xyz', degrees=True).tolist()
+        rpy = R.from_matrix(mitsubishi_R_tcp).as_euler('ZYX', degrees=True).tolist()
 
         if slow:
             self.robot.set_speed(vel/5)
         else:
             self.robot.set_speed(vel)
 
-        pose_values = [position[0], position[1], position[2], rpy[0], rpy[1], rpy[2]]
-        print(pose_values)
+        pose_values = [position[0], position[1], position[2], rpy[2], rpy[1], rpy[0]]
+        pose_values = [position[0], position[1], position[2], -23.47, -89.41, -157.56]
         pose_string = self.construct_pose_msg(pose_values)
-
         print(pose_string)
         self.robot.move_robot(pose_string)
         
         self.robot_in_motion = True
+
 
         while self.robot_in_motion:
             rospy.sleep(0.1)
@@ -70,29 +70,32 @@ class MitsubishiRobot(Robot):
     def get_pose(self, force_reading=False):
         try:
             pose_string = self.robot.read('PPOSF')
+            if len(pose_string) > 10:
 
-            pose_measurement = self.parse_msg(pose_string)
+                pose_measurement = self.parse_msg(pose_string)
 
+                position = pose_measurement[:3] 
+                rot_rpy = pose_measurement[3:6]
 
-            position = pose_measurement[:3] 
-            rot_rpy = pose_measurement[3:6]
-
-            self.last_position = position
-            self.last_rpy = rot_rpy
+                self.last_position = position
+                self.last_rpy = rot_rpy
+            else:
+                position = self.last_position
+                rot_rpy = self.last_rpy
+        
         except:
             # rospy.logwarn("Error getting pose")
             position = self.last_position
             rot_rpy = self.last_rpy
-        
         if self.robot_in_motion:
             self.robot_in_motion = self.check_motion_status()
-
-        rot_mat = R.from_euler('xyz', [rot_rpy[0], rot_rpy[1], rot_rpy[2]], degrees=True).as_dcm()
+            
+        rot_mat = R.from_euler('ZYX', [rot_rpy[2], rot_rpy[1], rot_rpy[0]], degrees=True).as_matrix()
         #Rotate poses by -90 deg to be compatible with base frame of UR10
-        ur_R_mitsubishi = R.from_euler('z', -90, degrees=True).as_dcm()
-
+        ur_R_mitsubishi = R.from_euler('z', -90, degrees=True).as_matrix()
+        
         updated_rot_mat = np.matmul(ur_R_mitsubishi, rot_mat)
-        rotvec = R.from_dcm(updated_rot_mat).as_rotvec().tolist()
+        rotvec = R.from_matrix(updated_rot_mat).as_rotvec().tolist()
 
 
         position = [x / 1000 for x in position] #convert from mm to m
@@ -122,7 +125,8 @@ class MitsubishiRobot(Robot):
         raise NotImplementedError
     
     def parse_msg(self, msg_string, variables=['X', 'Y', 'Z', 'A', 'B', 'C']):
-        xx = str(msg_string[3:]) #Remove 'QoK' parts from message
+        msg_string = str(msg_string)
+        xx = msg_string[5:] #Remove 'QoK' parts from message
         x_split = xx.split(';')
         values = []
         for variable in variables:
@@ -144,7 +148,7 @@ class MitsubishiRobot(Robot):
         return pose_msg_string
     
     def check_motion_status(self):
-        status_msg = self.robot.read('STATE')
+        status_msg = str(self.robot.read('STATE'))
         status_msg_split = status_msg.split(';')
         movement_status_msg = status_msg_split[4]
         if movement_status_msg == "A1060":
