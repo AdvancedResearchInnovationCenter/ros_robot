@@ -53,6 +53,6 @@ class MITSUBISHI(object):
         
         self.execute(variable_command)
 
-        move_command = "MOV P1"
+        move_command = "MVS P1"
         
         self.execute(move_command)

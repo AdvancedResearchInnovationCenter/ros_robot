@@ -4,9 +4,9 @@
 	<!---=================================================================================================================================================================-->
 	<!-- load tool model -->
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" /> -->
-	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" /> -->
+	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/blade_sorting_inspection_project.urdf.xacro'" />
 	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/mitsubishi.urdf.xacro'" /> -->
-	<param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/ur10_laser_setup.urdf.xacro'" />
+	<!-- <param name="robot_description" command="$(find xacro)/xacro '$(find ros_robot_pkg)/xacros/ur10_laser_setup.urdf.xacro'" /> -->
 
 	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
 	<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="0.15 -0.9 0.4 0.0117 -0.699 0.7145 0.0192 ur_base blade" /> -->
