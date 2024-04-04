@@ -19,6 +19,8 @@ import rospy
 from alive_progress import alive_bar 
 import rospkg
 import random 
+import os 
+from datetime import datetime
 
 base_to_ping_pong = np.array([[1, 0, 0, -0.042], [0,1, 0, -0.78], [0,0, -1, 0.09], [0,0,0,1]]) #The estimated pose for the bing bong ball 
 
@@ -38,7 +40,9 @@ class robot_laser_calibration:
         self.max_angle = 0.3#0.4
         self.N_pose_per_cycle = 20 #20
         self.dump_data_list = []
-        self.dump_file_name = str(date.today()) + '.pickle'
+        # self.dump_file_name = str(date.today()) + '.pickle'
+        current_datetime = datetime.now()
+        self.dump_file_name = current_datetime.strftime("%Y-%m-%d_%H-%M-%S") + '.pickle'
         
         # rospy.init_node('point_cloud_acquisition')
         self.point_cloud_topic = "/scancontrol_pointcloud"
@@ -65,14 +69,25 @@ class robot_laser_calibration:
         return np.array(tvec), R.from_rotvec(robot_pose[3:6]).as_matrix()
 
     def savePickle(self):
+        # self.rospack = rospkg.RosPack()
+        # path = self.rospack.get_path('ros_robot_pkg')
+        # rospy.loginfo(path)
+        # # open(path + '/data/' + self.dump_file_name, 'w')
+        # pickle.dump(self.dump_data_list,open(path + '/data/' + self.dump_file_name, 'wb'))
+        # rospy.sleep(1)
+        # rospy.loginfo("Pickel File Saved!")
         self.rospack = rospkg.RosPack()
         path = self.rospack.get_path('ros_robot_pkg')
-        rospy.loginfo(path)
-        # open(path + '/data/' + self.dump_file_name, 'w')
-        pickle.dump(self.dump_data_list,open(path + '/data/' + self.dump_file_name, 'wb'))
-        rospy.sleep(1)
-        rospy.loginfo("Pickel File Saved!")
-
+        data_directory = os.path.join(path, 'data')  # Create path to data directory
+        if not os.path.exists(data_directory):  # Check if directory exists
+            os.makedirs(data_directory)  # If not, create it
+        try:
+            with open(os.path.join(data_directory, self.dump_file_name), 'wb') as file:
+                pickle.dump(self.dump_data_list, file)
+            rospy.sleep(1)
+            rospy.loginfo("Pickle File Saved!")
+        except Exception as e:
+            rospy.logerr("Failed to save pickle file: {}".format(str(e)))
 
 
     def setup_calibration_poses(self):
