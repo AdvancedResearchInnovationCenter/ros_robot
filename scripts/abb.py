@@ -13,7 +13,7 @@ import socket
 import json 
 import time
 import inspect
-from threading import Thread
+import _thread
 from collections import deque
 import logging
 
@@ -29,7 +29,7 @@ class Robot:
         self.delay   = .08
 
         self.connect_motion((ip, port_motion))
-        #log_thread = Thread(target = self.get_net, 
+        #log__thread = _thread(target = self.get_net, 
         #                    args   = ((ip, port_logger))).start()
         
         self.set_units('millimeters', 'degrees')

@@ -66,7 +66,7 @@ class RobotKinematics:
         transform.translation.y = transformation_matrix[1, 3]
         transform.translation.z = transformation_matrix[2, 3]
 
-        quat = R.from_dcm(transformation_matrix[:3, :3]).as_quat()
+        quat = R.from_matrix(transformation_matrix[:3, :3]).as_quat()
         transform.rotation.x = quat[0]
         transform.rotation.y = quat[1]
         transform.rotation.z = quat[2]
@@ -80,7 +80,7 @@ class RobotKinematics:
 
         quat = [tf_transform.rotation.x, tf_transform.rotation.y, tf_transform.rotation.z, tf_transform.rotation.w]
         rotation = R.from_quat(quat) 
-        dcm = rotation.as_dcm()
+        dcm = rotation.as_matrix()
         transformation_matrix[:3, :3] = dcm
 
         transformation_matrix[0, 3] = tf_transform.translation.x
@@ -95,7 +95,7 @@ class RobotKinematics:
 
         quat = [Pose_msg.orientation.x, Pose_msg.orientation.y, Pose_msg.orientation.z, Pose_msg.orientation.w]
         rotation = R.from_quat(quat) 
-        dcm = rotation.as_dcm()
+        dcm = rotation.as_matrix()
         transformation_matrix[:3, :3] = dcm
 
         transformation_matrix[0, 3] = Pose_msg.position.x
@@ -112,7 +112,7 @@ class RobotKinematics:
         pose_msg.position.y = transformation_matrix[1, 3]
         pose_msg.position.z = transformation_matrix[2, 3]
 
-        quat = R.from_dcm(transformation_matrix[:3, :3]).as_quat()
+        quat = R.from_matrix(transformation_matrix[:3, :3]).as_quat()
         pose_msg.orientation.x = quat[0]
         pose_msg.orientation.y = quat[1]
         pose_msg.orientation.z = quat[2]
