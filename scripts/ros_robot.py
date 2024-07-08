@@ -10,6 +10,7 @@ from std_msgs.msg import Float64, Bool
 from std_srvs.srv import Empty
 import tf2_ros
 import datetime
+from ros_robot_pkg.msg import relative_pose_msg
 from ros_robot_pkg.srv import moveRobot, desiredTCP, pegHole, setValue, moveRobotRelative
 from scipy.spatial.transform import Rotation as R
 from kinematics import RobotKinematics
@@ -137,20 +138,22 @@ class RosRobot:
         self.rotate_ee_cmd = rospy.Subscriber("ur_rotate_ee_x", Float64, self.angle_callback_x)
         self.rotate_ee_cmd = rospy.Subscriber("ur_rotate_ee", Float64, self.angle_callback_z)
         self.pressure_movement_subs = rospy.Subscriber("move_pressure_to_cam", Bool, self.move_PF_to_cam) #moves the pressure_ft to the location of the camera
+        self.cmd_relative_pose_subs = rospy.Subscriber('ur_cmd_pose_relative', relative_pose_msg, self.move_relative_pose_callback)
         self.pickup_service = rospy.Service("ur_pickup", Empty, self.pick_item) 
         self.set_tcp_service = rospy.Service("set_TCP", desiredTCP, self.set_TCP_cb)
         self.move_service = rospy.Service('move_ur', moveRobot, self.moveRobot_cb)
         self.adjust_service = rospy.Service('move_TCP', moveRobot, self.moveTCP_cb)
         self.relative_move_service = rospy.Service('move_ur_relative', moveRobotRelative, self.moveRobotRelative_cb)
-        self.move_service = rospy.Service('fire_drill', moveRobot, self.fire_drill_cb)
+        # self.move_service = rospy.Service('fire_drill', moveRobot, self.fire_drill_cb)
         self.insert_split_pin = rospy.Service('insert_split_pin', pegHole, self.split_pin_cb)
         self.visual_split_pin = rospy.Service('visual_split_pin', pegHole, self.visual_split_pin_cb)
         self.retract_split_pin = rospy.Service('retract_split_pin', pegHole, self.retract_split_pin_cb)
         self.change_ref_vel = rospy.Service('change_ref_vel', setValue, self.change_ref_vel_cb)
         self.change_ref_acc = rospy.Service('change_ref_acc', setValue, self.change_ref_acc_cb)
+        self.stop_robot = rospy.Service('stop_robot', setValue, self.stop_robot_cb)
         
-        self.rate = rospy.Rate(50)
-        self.rate_c = rospy.Rate(50)
+        self.rate = rospy.Rate(200)
+        self.rate_c = rospy.Rate(200)
 
         self.robot_pose = PoseStamped()
         self.camera_pose = PoseStamped()
@@ -184,6 +187,12 @@ class RosRobot:
         self.acc = req.value
 
         return True
+    
+    def stop_robot_cb(self, req):
+        self.robot_controller.stop_robot()
+
+        return True
+
 
     def moveRobot_cb(self, req, slow=False):
         #Callback to move robot to specific pose
@@ -204,7 +213,7 @@ class RosRobot:
         #Callback to adjust TCP by specifc distance
         self.set_TCP(req.frame)
 
-        success = self.adjust_pose_callback(req.target_pose)
+        success = self.adjust_pose(req.target_pose)
         return success
 
 
@@ -244,10 +253,16 @@ class RosRobot:
         
         # rospy.loginfo("Pose command received:", pose_msg.position.x, pose_msg.position.y, pose_msg.position.z, pose_msg.orientation.x, pose_msg.orientation.y, pose_msg.orientation.z, pose_msg.orientation.w)
         
-        return self.move_to_pose(pose_msg)
+        return self.move_to_pose(pose_msg, async_move=True)
 
+    def move_relative_pose_callback(self, relative_pose_msg, slow=False):
+        #Callback to move robot to specific pose
+        self.set_TCP(relative_pose_msg.frame)
 
-    def move_to_pose(self, pose_msg, slow=False, relative_frame='ur_base'):
+        success = self.move_to_pose(relative_pose_msg.target_pose, slow, relative_frame=relative_pose_msg.relative_frame, async_move=True)
+        return success
+        
+    def move_to_pose(self, pose_msg, slow=False, relative_frame='ur_base', async_move=False):
         
         _, base_to_relative = self.kinematics.receive_transform('ur_base', relative_frame)
 
@@ -259,7 +274,7 @@ class RosRobot:
 
         full_transformation_matrix = self.kinematics.add_transformations(base_to_target, desired_to_org_TCP)
 
-        return self.move_TCP(full_transformation_matrix, slow)
+        return self.move_TCP(full_transformation_matrix, slow, async_move=async_move)
 
     def move_to_pose_list(self, pose_msg_list, slow=False):
         desired_transformation_list = []
@@ -273,15 +288,18 @@ class RosRobot:
             desired_transformation_list.append(full_transformation_matrix)
 
         return self.move_TCP_list(desired_transformation_list, slow)
-        
+    
 
     def adjust_pose_callback(self, Pose_msg):
+        self.adjust_pose(Pose_msg, async_move=True)
+
+    def adjust_pose(self, Pose_msg, async_move=False):
         current_TCP_to_desired_TCP = self.kinematics.pose_to_transformation_matrix(Pose_msg)
 
-        return self.move_frame(self.current_TCP, current_TCP_to_desired_TCP)
+        return self.move_frame(self.current_TCP, current_TCP_to_desired_TCP, async_move=async_move)
 
 
-    def move_frame(self, frame, transformation_matrix):
+    def move_frame(self, frame, transformation_matrix, async_move=False):
 
         _, base_to_current_TCP = self.kinematics.receive_transform('ur_base', frame)
         
@@ -291,15 +309,15 @@ class RosRobot:
         
         full_transformation_matrix = self.kinematics.add_transformations(base_to_desired_TCP, desired_to_org_TCP)
         
-        return self.move_TCP(full_transformation_matrix)
+        return self.move_TCP(full_transformation_matrix, async_move=async_move)
 
 
-    def move_TCP(self, desired_transformation, slow=False):
+    def move_TCP(self, desired_transformation, slow=False, async_move=False):
         command_trans = desired_transformation[:3, 3]
         command_attitude = R.from_matrix(desired_transformation[:3, :3])
         attitude_rot_vec = command_attitude.as_rotvec()
         pose_vec = [command_trans[0], command_trans[1], command_trans[2], attitude_rot_vec[0], attitude_rot_vec[1], attitude_rot_vec[2]]
-        self.robot_controller.move_TCP(pose_vec, self.vel, self.acc, slow)
+        self.robot_controller.move_TCP(pose_vec, self.vel, self.acc, slow, async_move=async_move)
         
         # self.update_poses()
 

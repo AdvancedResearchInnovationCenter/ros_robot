@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<robot name="end_effector" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <link name="davis"/>
+    <link name="pressure_ft"/>
+    <link name="scancontrol"/>
+    <link name="scancontrol_intermediate"/>
+    <link name="TCP"/>
+
+    <joint name="TCP_to_cam" type="fixed">
+        <parent link="TCP"/>
+        <child link="davis"/>
+	    <origin xyz="0.09 0.0 0.3" rpy="-0.0044183 0.0010221 -2.37"/>
+    </joint>
+
+    <joint name="TCP_to_laser" type="fixed">
+        <parent link="TCP"/>
+        <child link="scancontrol_intermediate"/>
+	    <!-- <origin xyz="0.0 -0.1 0.205" rpy="0.0 0.0 1.57"/> original -->
+        <!-- <origin xyz="-1.65261651e-03 -9.72952491e-02  1.84408864e-01" rpy="-1.05657499e-03 -3.31011580e-04  1.57058227e+00"/> pickel 14-7-->
+        <!-- <origin xyz="-1.71190303e-03 -9.65540968e-02 1.84612156e-01" rpy="-1.12734899e-03 -2.62670261e-04 1.57062817e+00"/> pickle file 19-7-2023 - 11:00AM -->
+        <!-- <origin xyz="0.03186524 -0.09282229 0.18682928" rpy="0.01300269 0.00247198 1.58263086"/> pickle file 19-7-2023 - 11:00AM -->
+        <!-- <origin xyz="-0.057 0.057 0.106" rpy="1.5707963 0 2.35619"/>  -->
+        <!-- <origin xyz="-0.057 0.057 0.106" rpy="-1.5707963 0 -0.785398"/>  -->
+        <origin xyz="-0.007775734219481385 0.07877175919435352 0.07711115615836664" rpy="-1.5707963 0 0.785398"/> 
+        
+        
+    </joint>
+
+    <joint name="exact_laser_transform" type="fixed">
+        <parent link="scancontrol_intermediate"/>
+        <child link="scancontrol"/>
+	    <origin xyz="0.0 0.0 0.5" rpy="0.0 3.14159265359 0.0"/>
+    </joint>
+
+    <joint name="TCP_to_pressure_ft" type="fixed">
+        <parent link="TCP"/>
+        <child link="pressure_ft"/>
+	    <origin xyz="0.05 0 0.15" rpy="0 0 -1.5707963"/>
+    </joint>
+
+</robot>
+
+
+<!-- <origin xyz="-0.05 -0.025 0.08" rpy="0 0 -1.5707963"/> -->
