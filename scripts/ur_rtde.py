@@ -15,14 +15,14 @@ class UrRtde(Robot):
         self.robot_r = rtde_receive.RTDEReceiveInterface(robot_ip)#urx.Robot(robot_ip, True)
         self.robot_io = rtde_io.RTDEIOInterface(robot_ip)#urx.Robot(robot_ip, True)
         
-    def move_TCP(self, pose_vec, vel, acc, slow=False):
-        if not self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel, acc): #TODO: Debug wait
+    def move_TCP(self, pose_vec, vel, acc, slow=False, async_move=False):
+        if not self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel, acc, asynchronous=async_move): #TODO: Debug wait
             self.robot_c.reuploadScript()
             rospy.sleep(1)
             if slow:
-                self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel/5, acc/5)
+                self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel/5, acc/5, asynchronous=async_move)
             else:
-                self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel, acc)
+                self.robot_c.moveL((pose_vec[0], pose_vec[1], pose_vec[2], pose_vec[3], pose_vec[4], pose_vec[5]), vel, acc, asynchronous=async_move)
 
     
     def move_TCP_compound(self, pose_vec_list, vel, acc, blend=0.1, slow=False):
@@ -51,3 +51,6 @@ class UrRtde(Robot):
 
     def get_analog_input(self):
         return self.robot_r.getStandardAnalogInput1()
+    
+    def stop_robot(self):
+        return self.robot_c.stopJ(1, False)

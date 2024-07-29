@@ -34,7 +34,7 @@ class robot_laser_calibration:
         self.robot = RosRobot(self.ur_robot)
         # laser topic for the point cloud 
         # self.radius = [0.2, 0.25]
-        self.radius = [0.25, 0.025]
+        self.radius = [0.25, 0.25]
         self.calibration_poses = [] #laser poses relative to bing bong
         self.N_cycle = 5#5
         self.max_angle = 0.3#0.4

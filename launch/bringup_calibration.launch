@@ -12,8 +12,9 @@
 	<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="-0.06510484 -0.8120443 0.13574791 3.14 0 3.14 ur_base ping_pong" /> -->
 
 <!-- UR10E - 18-3-2024 -->
-	<node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="-0.19 0.634 0.13574791 3.14 3.14 0 ur_base ping_pong" />  
+	<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="-0.19 0.634 0.13574791 3.14 3.14 0 ur_base ping_pong" />   -->
 <!-- UR10E - 18-3-2024 -->
+	<node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="-0.0125 -0.6875 0.13574791 3.14 0 3.14 ur_base ping_pong" />  
 	
 
 	<!---=================================================================================================================================================================-->
