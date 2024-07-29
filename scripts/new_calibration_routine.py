@@ -50,6 +50,7 @@ class robot_camera_calibration:
         self.checkerboard_dim = chess_size
         self.checkerboard_size = 3
         self.object_points = np.zeros((self.checkerboard_dim[0]*self.checkerboard_dim[1],3), np.float32)
+        # no. 3 is it should be replaced by the checkerboard size 
         self.object_points[:,:2] = 3*np.mgrid[0:self.checkerboard_dim[0], 0:self.checkerboard_dim[1]].T.reshape(-1,2)
 
         #Aruco properties
@@ -376,7 +377,7 @@ class robot_camera_calibration:
             self.robot.move_to_pose(pose_msg)
             rospy.sleep(3)
 
-
+    
             original_img, input_img = self.getRosImage() 
 
             # while not self.check_checkerboard(input_img):
