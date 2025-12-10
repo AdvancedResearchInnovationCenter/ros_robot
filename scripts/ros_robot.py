@@ -511,7 +511,7 @@ class RosRobot:
 
 if __name__ == '__main__':
     ee_frames = ['davis', 'pressure_ft']
-     
+    
     robot = UrRtde("192.168.50.110")
     # robot = AbbRobot('192.168.125.1')
     
@@ -521,6 +521,7 @@ if __name__ == '__main__':
         publish_vel_on=['davis'],        # Only these get velocity
         publish_wrench_on=['pressure_ft'] # Only these get force
     )
+    rospy.set_param('/ee_frames', ee_frames)
     
     _thread.start_new_thread( ros_robot.run_node, () )
     _thread.start_new_thread( ros_robot.run_controller, () )
